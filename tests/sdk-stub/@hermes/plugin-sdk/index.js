@@ -90,8 +90,12 @@ const passthrough = name => {
 export const Badge = ({ children }) => jsx('span', { 'data-stub': 'Badge', children })
 export const Button = ({ children, onClick, ...rest }) => jsx('button', { onClick, ...rest, children: children })
 export const Codicon = () => jsx('i', { 'data-stub': 'Codicon' })
-export const CopyButton = ({ label, text }) =>
-  jsx('span', { 'data-stub': 'CopyButton', children: `${label ?? 'copy'}:${String(text).length}` })
+export const CopyButton = ({ appearance, label, text }) =>
+  jsx('span', {
+    'data-stub': 'CopyButton',
+    'data-appearance': appearance ?? 'button',
+    children: `${label ?? 'copy'}:${String(text).length}`
+  })
 export const EmptyState = ({ title, description }) =>
   jsx('div', { 'data-stub': 'EmptyState', children: [title, description] })
 export const GlyphSpinner = () => jsx('i', { 'data-stub': 'GlyphSpinner' })

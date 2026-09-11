@@ -2369,7 +2369,7 @@ function GraphView({ trail }) {
               width: '40%',
               minWidth: '180px',
               maxWidth: '420px',
-              maxHeight: '55%',
+              maxHeight: '80%',
               overflow: 'auto',
               flexShrink: 0,
               alignSelf: 'flex-start'
@@ -2419,7 +2419,7 @@ function GraphView({ trail }) {
                         }),
                         row.copy
                           ? jsx(CopyButton, {
-                              appearance: 'inline',
+                              appearance: 'icon',
                               className: 'text-(--ui-text-tertiary)',
                               label: `Copy ${row.label}`,
                               text: row.value

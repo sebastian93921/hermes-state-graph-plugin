@@ -149,17 +149,25 @@ check('the panel is scoped to its own session', () => {
 // prove the command and the result are separate clipboard payloads
 $detail.set(`${SID}:${trail.order.find(key => trail.nodes[key]?.baseKey === 'tool:terminal')}`)
 
-check('the command and result rows each get their own Copy button', () => {
+check('the command and result rows each get their own icon-only Copy button', () => {
   const frame = renderToString(jsx(GraphView, { trail }))
   const buttons = (frame.match(/data-stub="CopyButton"[^<]*</g) || []).join(',')
 
   // "echo hello" is 10 chars, the result "hello" is 5
-  if (!frame.includes('Copy command:10<')) {
-    throw new Error(`no command copy button (${buttons})`)
+  if (!/data-appearance="icon"[^>]*>Copy command:10</.test(frame)) {
+    throw new Error(`no icon-only command copy button (${buttons})`)
   }
 
-  if (!frame.includes('Copy result:5<')) {
-    throw new Error(`no result copy button (${buttons})`)
+  if (!/data-appearance="icon"[^>]*>Copy result:5</.test(frame)) {
+    throw new Error(`no icon-only result copy button (${buttons})`)
+  }
+})
+
+check('the detail box is capped at 80% height', () => {
+  const frame = renderToString(jsx(GraphView, { trail }))
+
+  if (!/max-height:80%/.test(frame)) {
+    throw new Error('the box height is not 80% of the pane')
   }
 })
 
