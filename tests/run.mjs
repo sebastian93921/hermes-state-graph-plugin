@@ -142,7 +142,7 @@ __emit({
   payload: {
     name: 'read_file',
     tool_id: 't2',
-    args: { file_path: '/repo/AGENTS.md' },
+    args: { file_path: '/home/parrot/workspace/AGENTS.md' },
     preview: 'AGENTS.md',
     error: 'permission denied',
     duration_s: 1.2
@@ -308,8 +308,14 @@ check('state_graph_note never becomes a task, a step, or a card', () => {
   }
 })
 check('flow is forward-only, no dashed loop-backs', () => {
-  if (has(graphHtml, 'stroke-dasharray')) {
-    throw new Error('a dashed back-edge is still drawn')
+  // The only dash pattern now is the marching 6/6 dash of the ACTIVE edge
+  // (the old static dashed back-edge is gone). Animate lives in its place.
+  if (!has(graphHtml, 'stroke-dasharray="6 6"')) {
+    throw new Error('the active edge lost its marching dash')
+  }
+
+  if (!has(graphHtml, '<animate')) {
+    throw new Error('no SMIL animation on the live edge')
   }
 
   if (has(graphHtml, 'ran earlier')) {
@@ -502,7 +508,7 @@ check('expanded body offers reveal for a file-arg card (and not otherwise)', () 
     ...card,
     key: 't2',
     name: 'read_file',
-    args: { file_path: '/repo/AGENTS.md' },
+    args: { file_path: '/home/parrot/workspace/AGENTS.md' },
     preview: 'AGENTS.md'
   }
   const html = renderToString(
