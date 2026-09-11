@@ -96,38 +96,32 @@ await check('the node carries weight bars sharing the task seconds', () => {
   }
 })
 
-await check('files are deduped with hit counts, in first-seen order', () => {
-  const detail = nodeDetail(trail, toolKey)
 
-  if (!detail.objects || detail.objects.length !== 2) {
-    throw new Error(`expected 2 paths, got ${JSON.stringify(detail.objects)}`)
-  }
-
-  if (detail.objects[0][0] !== '/home/parrot/workspace/a.md' || detail.objects[0][1] !== 2) {
-    throw new Error(`first path wrong: ${JSON.stringify(detail.objects[0])}`)
-  }
-})
 
 await check('the pane renders the weight strip and the files list', () => {
   $detail.set(`${SID}:${toolKey}`)
   const frame = renderFrame()
 
   // labels are built by string concat, so React splits them with a comment node
-  if (!/weight <!-- -->\d+ ops · [\d.]+s/.test(frame) || !/files \d+/.test(frame)) {
+  if (!/weight <!-- -->\d+ ops · [\d.]+s/.test(frame)) {
     throw new Error(`sections missing from the pane: ${(frame.match(/weight[^<]*|files[^<]*/g) || []).slice(0, 3).join(' | ')}`)
   }
 
-  // the weight rows sit after the session id, the files row right after pin
+  // the weight row sits right after the session id in the footer
   const at = (re) => {
     const found = frame.search(re)
 
     return found
   }
   // the header's doing-text also says "weight"/"files", so anchor on the label forms
-  const order = [at(/font-mono">[^<]*</), at(/weight <!-- -->/), at(/>pin</), at(/files \d/)]
+  const order = [at(/font-mono">[^<]*</), at(/weight <!-- -->/)]
 
-  if (!(order[0] > 0 && order[1] > order[0] && order[3] > order[2] && order[2] > 0)) {
-    throw new Error(`rows are out of place: ${JSON.stringify(order)}`)
+  if (!(order[0] > 0 && order[1] > order[0])) {
+    throw new Error(`the weight row is out of place: ${JSON.stringify(order)}`)
+  }
+
+  if (frame.includes('>files<')) {
+    throw new Error('the files section is still painted')
   }
 
   if (!/width:\d+%/.test(frame)) {

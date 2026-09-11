@@ -1442,27 +1442,6 @@ function taskWeights(trail, node) {
   return { bars, total, ops: cards.length }
 }
 
-/** The distinct file/object paths a task touched, in first-seen order. */
-function taskObjects(trail, node) {
-  const taskText = node?.summary || ''
-  const cards = (trail.cards || []).filter(
-    card => !card.seeded && (!taskText || !card.phase || card.phase === taskText)
-  )
-  const seen = new Map()
-
-  for (const card of cards) {
-    const path = pickPath(card.args)
-
-    if (!path) {
-      continue
-    }
-
-    seen.set(path, (seen.get(path) || 0) + 1)
-  }
-
-  return Array.from(seen.entries()).slice(0, 8)
-}
-
 /** The weight of the task the trail is on, straight from the cards — no node
  *  selection needed: the current task sentence is the group key. */
 function footerWeight(trail) {
@@ -1554,7 +1533,6 @@ function nodeDetail(trail, key) {
   }
 
   const { bars, total, ops } = taskWeights(trail, node)
-  const objects = taskObjects(trail, node)
 
   if (!rows.length) {
     return null
@@ -1565,8 +1543,7 @@ function nodeDetail(trail, key) {
     rows,
     bars: bars.length ? bars : null,
     barTotal: total,
-    barOps: ops,
-    objects: objects.length ? objects : null
+    barOps: ops
   }
 }
 
@@ -1909,10 +1886,42 @@ function GraphView({ trail }) {
 
     $expandedLanes.set(next)
   }
+  const drag = useRef(null) // { x, y, left, top } while the left button is down
   const focus = (trail && trail.current) || ''
   // A finished turn is a STILL frame: the halo and the marching dots belong to
   // the in-flight step only, so they must drop out once the run reports done.
   const live = trail?.status === 'running' || trail?.status === 'drafting' || Boolean(trail && !trail.endedAt)
+
+  const onGrab = event => {
+    const el = scroller.current
+
+    if (!el) {
+      return
+    }
+
+    drag.current = {
+      x: event.clientX,
+      y: event.clientY,
+      left: el.scrollLeft,
+      top: el.scrollTop
+    }
+  }
+
+  const onDrag = event => {
+    const el = scroller.current
+    const start = drag.current
+
+    if (!el || !start) {
+      return
+    }
+
+    el.scrollLeft = Math.max(0, start.left - (event.clientX - start.x))
+    el.scrollTop = Math.max(0, start.top - (event.clientY - start.y))
+  }
+
+  const onRelease = () => {
+    drag.current = null
+  }
 
   useEffect(() => {
     const el = scroller.current
@@ -2455,6 +2464,11 @@ function GraphView({ trail }) {
     children: [
       jsx('div', {
         ref: scroller,
+        onMouseDown: onGrab,
+        onMouseMove: onDrag,
+        onMouseUp: onRelease,
+        onMouseLeave: onRelease,
+        style: { cursor: 'grab' },
         className: 'min-h-0 min-w-0 flex-1 overflow-auto p-2',
         children: jsx('svg', {
           width,
@@ -2730,44 +2744,6 @@ function WeightStrip({ detail }) {
   })
 }
 
-/** The distinct file paths the task touched, as one compact run of chips. */
-function FilesInline({ detail }) {
-  if (!detail || !detail.objects || !detail.objects.length) {
-    return null
-  }
-
-  return jsxs('div', {
-    className: 'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5',
-    children: [
-      jsx('span', {
-        className: 'shrink-0 uppercase tracking-wide text-(--ui-text-quaternary)',
-        children: `files ${detail.objects.length}`
-      }),
-      ...detail.objects.map(([path, hits]) =>
-        jsxs(
-          'span',
-          {
-            className: 'flex items-center gap-0.5',
-            children: [
-              jsx('span', {
-                className: 'font-mono text-(--ui-text-secondary)',
-                children: basename(path) || path
-              }),
-              hits > 1
-                ? jsx('span', {
-                    className: 'font-mono text-(--ui-text-quaternary)',
-                    children: `x${hits}`
-                  })
-                : null
-            ]
-          },
-          `file:${path}`
-        )
-      )
-    ]
-  })
-}
-
 function StateGraphPane({ ctx }) {
   const trails = useValue($trails)
   const view = useValue($view)
@@ -2842,7 +2818,6 @@ function StateGraphPane({ ctx }) {
             },
             children: 'pin'
           }),
-          jsx(FilesInline, { detail }),
           jsx('span', { className: 'flex-1' }),
           jsx(Button, {
             variant: 'ghost',
