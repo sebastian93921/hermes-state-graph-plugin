@@ -133,7 +133,7 @@ await check('the box sits beside the graph (row layout)', () => {
     throw new Error(`the box is not a bounded side column: "${style}"`)
   }
 
-  if (!/max-height:80%/.test(style) || !/overflow:auto/.test(style)) {
+  if (!/max-height:100%/.test(style) || !/overflow:auto/.test(style)) {
     throw new Error('the box must cap its height and scroll inside it')
   }
 })

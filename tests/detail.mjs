@@ -163,10 +163,10 @@ check('the command and result rows each get their own icon-only Copy button', ()
   }
 })
 
-check('the detail box is capped at 80% height', () => {
+check('the detail box is capped at 100% height', () => {
   const frame = renderToString(jsx(GraphView, { trail }))
 
-  if (!/max-height:80%/.test(frame)) {
+  if (!/max-height:100%/.test(frame)) {
     throw new Error('the box height is not 80% of the pane')
   }
 })

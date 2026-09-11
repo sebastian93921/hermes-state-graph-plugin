@@ -2369,7 +2369,7 @@ function GraphView({ trail }) {
               width: '40%',
               minWidth: '180px',
               maxWidth: '420px',
-              maxHeight: '80%',
+              maxHeight: '100%',
               overflow: 'auto',
               flexShrink: 0,
               alignSelf: 'flex-start'
