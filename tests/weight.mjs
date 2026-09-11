@@ -46,6 +46,12 @@ __emit({ type: 'tool.complete', session_id: SID, payload: { name: 'read_file', t
 __emit({ type: 'tool.start', session_id: SID, payload: { name: 'patch', tool_id: 'p1', args: { path: '/home/parrot/workspace/b.md', old_string: 'x', new_string: 'y' } } })
 __emit({ type: 'tool.complete', session_id: SID, payload: { name: 'patch', tool_id: 'p1', result: 'ok', duration_s: 1.0 } })
 
+// five more distinct names so the strip has to fold its tail
+for (let i = 0; i < 5; i += 1) {
+  __emit({ type: 'tool.start', session_id: SID, payload: { name: `cmd_${i}`, tool_id: `c${i}`, args: { command: `echo ${i}` } } })
+  __emit({ type: 'tool.complete', session_id: SID, payload: { name: `cmd_${i}`, tool_id: `c${i}`, result: 'ok', duration_s: 0.05 } })
+}
+
 const trail = $trails.get()[SID]
 const toolKey = trail.order.find(key => trail.nodes[key]?.baseKey === 'tool:read_file')
 
@@ -73,8 +79,16 @@ await check('the node carries weight bars sharing the task seconds', () => {
     throw new Error(`read_file bar wrong: ${JSON.stringify(read)}`)
   }
 
-  if (Math.abs(detail.bars.reduce((sum, bar) => sum + bar.share, 0) - 1) > 1e-6) {
-    throw new Error(`shares do not sum to 1: ${JSON.stringify(detail.bars)}`)
+  const total = detail.bars.reduce((sum, bar) => sum + bar.share, 0)
+
+  // the data keeps the six heaviest names, so their shares cover the bulk of the
+  // task and the remaining names are the ellipsis' share
+  if (!(total > 0.9) || total > 1.0001) {
+    throw new Error(`shares out of range for a ${detail.bars.length}-name strip: ${total}`)
+  }
+
+  if (!detail.bars.every((bar, index) => index === 0 || detail.bars[index - 1].seconds >= bar.seconds)) {
+    throw new Error('bars are not sorted by seconds')
   }
 
   if (detail.barOps < 3 || detail.barTotal <= 0) {
@@ -124,12 +138,28 @@ await check('the pane renders the weight strip and the files list', () => {
     throw new Error(`file row not rendered: ${(frame.match(/a\.md|x2/g) || []).join(',')}`)
   }
 
-  if (!frame.includes('3 ops')) {
+  if (!/\d+ ops · \d+\.\ds/.test(frame)) {
     throw new Error(`ops counter missing: ${(frame.match(/\d+ ops · [\d.]+s/g) || []).join(',')}`)
   }
 })
 
-await check('a node with no timed cards degrades without bars', () => {
+await check('a long strip folds its tail into an ellipsis', async () => {
+  $detail.set(`${SID}:${toolKey}`)
+  const frame = await renderFrame()
+  const from = frame.indexOf('>weight <!-- -->')
+  const strip = frame.slice(from, from + 2600)
+  const bars = (strip.match(/class="flex items-center gap-1"/g) || []).length
+
+  if (bars !== 3) {
+    throw new Error(`expected 3 painted bars, got ${bars}`)
+  }
+
+  if (!/>…3</.test(strip)) {
+    throw new Error(`no folded-tail marker where expected: ${strip.slice(0, 260)}`)
+  }
+})
+
+check('a node with no timed cards degrades without bars', () => {
   $detail.set('')
   const detail = nodeDetail(trail, trail.order[0])
 

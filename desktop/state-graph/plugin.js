@@ -1376,6 +1376,7 @@ const LANE_MAX_CELLS = 6
 const GAP_W = 70
 const GAP_H = 26
 const SMIL_STEP = 200 // the 1.2s glide is six 200ms frames
+const WEIGHT_MAX_BARS = 3 // the rest of the weight names fold into an ellipsis
 const ARROW_STOP = 8 // dotted layers end this far before the line end (arrow tip at -0.5)
 
 /** Which of the five hop frames the SMIL clock is on for a given event stamp.
@@ -2684,7 +2685,7 @@ function WeightStrip({ detail }) {
         className: 'shrink-0 uppercase tracking-wide text-(--ui-text-quaternary)',
         children: ['weight ', `${detail.barOps} ops · ${detail.barTotal.toFixed(1)}s`]
       }),
-      ...detail.bars.map(bar =>
+      ...detail.bars.slice(0, WEIGHT_MAX_BARS).map(bar =>
         jsxs(
           'span',
           {
@@ -2713,7 +2714,18 @@ function WeightStrip({ detail }) {
           },
           `bar:${bar.label}`
         )
-      )
+      ),
+      detail.bars.length > WEIGHT_MAX_BARS
+        ? jsxs(
+            'span',
+            {
+              'aria-hidden': 'true',
+              className: 'shrink-0 font-mono text-(--ui-text-quaternary)',
+              children: `…${detail.bars.length - WEIGHT_MAX_BARS}`
+            },
+            'bar:rest'
+          )
+        : null
     ]
   })
 }
