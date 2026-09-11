@@ -9,7 +9,7 @@ of task bands with a lane per parallel worker and forks where `delegate_task`
 fanned out, plus an **audit trail** of the tool cards between your prompt and the
 final answer.
 
-<img width="1780" height="425" alt="image" src="https://github.com/user-attachments/assets/1296cb66-3564-4697-8c64-6e121a1b80e5" />
+<img width="1778" height="1323" alt="image" src="https://github.com/user-attachments/assets/65c50e77-a780-454a-af15-ef646ba8b1c5" />
 
 Read: the lane keeps its head and tail and collapses the stretches it hides into
 `… N` chips you can **click to open**; a branch hangs off the node that spawned
