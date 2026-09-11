@@ -70,7 +70,9 @@ const hitFor = title =>
   Array.from(container.querySelectorAll('rect.sg-hit')).find(rect =>
     Array.from(rect.children).some(child => child.textContent === title)
   )
-const boxEl = () => Array.from(container.querySelectorAll('div')).find(node => (node.getAttribute('class') || '').includes('w-[40%]'))
+const boxEl = () => Array.from(container.querySelectorAll('div')).find(node =>
+  (node.getAttribute('style') || node.style?.cssText || '').replace(/\s+/g, '').includes('width:40%')
+)
 
 await check('the box is closed before any click', () => {
   if ($detail.get() !== '') {
@@ -125,13 +127,13 @@ await check('the box sits beside the graph (row layout)', () => {
     throw new Error(`wrapper is not a row: "${cls}"`)
   }
 
-  const boxCls = boxEl().getAttribute('class') || ''
+  const style = (boxEl().getAttribute('style') || boxEl().style?.cssText || '').replace(/\s+/g, '')
 
-  if (!/w-\[40%\]/.test(boxCls) || !/max-w-\[420px\]/.test(boxCls)) {
-    throw new Error(`the box is not a bounded side column: "${boxCls}"`)
+  if (!/width:40%/.test(style) || !/max-width:420px/.test(style)) {
+    throw new Error(`the box is not a bounded side column: "${style}"`)
   }
 
-  if (!/max-h-\[55%\]/.test(boxCls) || !/overflow-auto/.test(boxCls)) {
+  if (!/max-height:55%/.test(style) || !/overflow:auto/.test(style)) {
     throw new Error('the box must cap its height and scroll inside it')
   }
 })

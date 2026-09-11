@@ -2364,9 +2364,18 @@ function GraphView({ trail }) {
       detail
         ? jsxs('div', {
             onClick: event => event.stopPropagation(),
+            style: {
+              width: '40%',
+              minWidth: '180px',
+              maxWidth: '420px',
+              maxHeight: '55%',
+              overflow: 'auto',
+              flexShrink: 0,
+              alignSelf: 'flex-start'
+            },
             className:
-              'w-[40%] min-w-[180px] max-w-[420px] max-h-[55%] shrink-0 self-start overflow-auto ' +
-              'rounded-[4px] border border-(--ui-stroke-quaternary) bg-(--ui-bg-secondary) px-2 py-1.5',
+              'shrink-0 self-start overflow-auto rounded-[4px] border border-(--ui-stroke-quaternary) ' +
+              'bg-(--ui-bg-secondary) px-2 py-1.5',
             children: [
               jsxs('div', {
                 className: 'flex items-center gap-1.5',
@@ -2401,9 +2410,10 @@ function GraphView({ trail }) {
                           children: row.label
                         }),
                         jsx(row.mono ? 'pre' : 'span', {
+                          style: { maxHeight: '120px' },
                           className: row.mono
-                            ? 'min-w-0 max-h-[120px] flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-(--ui-text-secondary)'
-                            : 'min-w-0 max-h-[120px] flex-1 overflow-auto break-all text-(--ui-text-secondary)',
+                            ? 'min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-(--ui-text-secondary)'
+                            : 'min-w-0 flex-1 overflow-auto break-all text-(--ui-text-secondary)',
                           children: row.value
                         })
                       ]
