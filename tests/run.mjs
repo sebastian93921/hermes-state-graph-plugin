@@ -322,8 +322,21 @@ check('flow is forward-only, no dashed loop-backs', () => {
     throw new Error('the fat dot must hop slot-to-slot, not slide')
   }
 
-  if (!has(graphHtml, 'values="40;32;24;16;8;0"')) {
-    throw new Error('the hop must step exactly one 8px slot per frame')
+  const hopSeq = (graphHtml.match(/attributeName="stroke-dashoffset" values="([^"]*)"/) || [])[1] || ''
+  const frames = hopSeq.split(';').map(Number)
+
+  if (frames.length !== 6 || frames.some(n => !Number.isFinite(n))) {
+    throw new Error(`hop must carry 6 finite frames, got "${hopSeq}"`)
+  }
+
+  for (let i = 1; i < 5; i++) {
+    if ((frames[i - 1] + 8) % 40 !== frames[i]) {
+      throw new Error(`hop frame ${i}: ${frames[i - 1]} -> ${frames[i]} is not one 8px slot`)
+    }
+  }
+
+  if (frames[5] !== frames[0]) {
+    throw new Error('the hop cycle must wrap to its resting frame')
   }
 
   if (!has(graphHtml, 'stroke-linecap="round"')) {

@@ -600,7 +600,15 @@ function beginTurn(sid) {
   })
 }
 
+let latestAt = 0
+
 function handleEvent(event) {
+  const stamp = Number(event?.at) || 0
+
+  if (stamp) {
+    latestAt = stamp
+  }
+
   const sid = typeof event?.session_id === 'string' ? event.session_id : ''
   const type = typeof event?.type === 'string' ? event.type : ''
   const payload = event?.payload || {}
@@ -1366,6 +1374,19 @@ const EDGE_LABEL_FONT = 9
 const LANE_MAX_CELLS = 6
 const GAP_W = 70
 const GAP_H = 26
+const SMIL_STEP = 250 // the 1.5s hop is six 250ms frames
+
+/** Which of the five hop frames the SMIL clock is on for a given event stamp.
+ *  The last stamp before `busy` flips false is the frame the march rests on. */
+const smilPhase = at => {
+  const stamp = Number(at) || 0
+
+  if (!stamp) {
+    return 0
+  }
+
+  return (Math.floor(stamp / SMIL_STEP) + 1) % 5 * 8
+}
 
 /** Node tint per kind — flat fills with white text, the palette the user asked
  *  the graph to follow. */
@@ -1858,6 +1879,11 @@ function GraphView({ trail }) {
     const dx = tx - sx
     const dy = ty - sy
     const length = Math.hypot(dx, dy)
+    // Deterministic resting frame so the march freezes at a sane spot once the
+    // stream goes idle (busy flips false): the last event's timestamp decides it.
+    const phase = smilPhase(latestAt)
+    // five steps of one slot each, then the cycle wraps to the resting frame
+    const rotated = [0, 1, 2, 3, 4, 5].map(k => (phase + k * 8) % 40).join(';')
     const stroke = active ? 'var(--ui-accent)' : 'var(--ui-stroke-tertiary)'
 
     children.push(
@@ -1898,13 +1924,13 @@ function GraphView({ trail }) {
             strokeWidth: 4.2,
             strokeLinecap: 'round',
             strokeDasharray: '0.1 39',
-            strokeDashoffset: 40,
+            strokeDashoffset: phase,
             opacity: 1,
             children: jsx(
               'animate',
               {
                 attributeName: 'stroke-dashoffset',
-                values: '40;32;24;16;8;0',
+                values: rotated,
                 calcMode: 'discrete',
                 dur: '1.5s',
                 repeatCount: 'indefinite'

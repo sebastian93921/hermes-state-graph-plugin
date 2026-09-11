@@ -186,6 +186,7 @@ node structure.mjs  # [a] -> …… -> [h] -> …… -> [z] + branches off [h]
 node fork.mjs       # two branches leave one node from the same point
 node click.mjs              # the `… N` chip is a button, not a label
 node fit.mjs                # two-line labels still fit the 148x38 card
+node freeze.mjs             # the dot hop rests on a deterministic frame once the turn ends
 node click-dom.mjs  # ...and a real dispatched click opens the lane (jsdom)
 node long.mjs       # a 30-step lane stays finite and elided
 ```

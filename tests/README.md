@@ -24,6 +24,7 @@ node long.mjs               # a 30-step lane stays finite and elided
 | `structure.mjs` | When a lane is long *and* has branches, does the fork node stay visible between two `… N` chips, with the branches hanging off it? |
 | `fork.mjs` | Do two branches off one node leave from the same point, one cell to the right? |
 | `click.mjs` | Is the chip clickable state wired (open spells the hidden steps out, the toggle moves to the lane end and closes it)? |
+| `freeze.mjs` | Does the dot hop rest on a deterministic frame (a multiple of the 8px slot) once the stream goes idle? |
 | `fit.mjs` | At the current card size, do the wrapped titles still fit the 148x38 card, and do the two baselines stay inside the 38px height? |
 | `click-dom.mjs` | Does a real `MouseEvent` on the chip actually flip the store? SSR cannot prove a handler — this mounts the component in jsdom. |
 | `long.mjs` | A single long lane: does anything go `NaN`, and does it stay elided? |
