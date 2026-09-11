@@ -7,17 +7,12 @@ of task bands with a lane per parallel worker and forks where `delegate_task`
 fanned out, plus an **audit trail** of the tool cards between your prompt and the
 final answer.
 
-```
-[a] -> …… -> [h] -> …… -> [z]
-               +-> [c1] -> …… -> [h1]
-               +-> [c2] -> …… -> [h2]
-```
+<img width="1631" height="331" alt="image" src="https://github.com/user-attachments/assets/5d1a8bac-1d19-4a7c-a9dd-6920a8e4c009" />
 
 Read: the lane keeps its head and tail and collapses the stretches it hides into
 `… N` chips you can **click to open**; a branch hangs off the node that spawned
 it, not off the band header. Nothing is inferred from tool arguments — the
 sentence is written by the agent, through a real tool call.
-<img width="1631" height="331" alt="image" src="https://github.com/user-attachments/assets/5d1a8bac-1d19-4a7c-a9dd-6920a8e4c009" />
 
 
 ---
