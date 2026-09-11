@@ -1,3 +1,5 @@
+<img width="1227" height="685" alt="image" src="https://github.com/user-attachments/assets/c3da952b-b401-4a56-88fc-5a3eabcf9944" />
+
 # Hermes Desktop State Graph
 
 See what your agent is actually doing — inside the Hermes desktop app.
