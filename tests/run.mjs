@@ -331,20 +331,11 @@ check('flow is forward-only, no dashed loop-backs', () => {
   }
 
   const hopSeq = (graphHtml.match(/attributeName="stroke-dashoffset" values="([^"]*)"/) || [])[1] || ''
-  const frames = hopSeq.split(';').map(Number)
 
-  if (frames.length !== 6 || frames.some(n => !Number.isFinite(n))) {
-    throw new Error(`hop must carry 6 finite frames, got "${hopSeq}"`)
-  }
-
-  for (let i = 1; i < 5; i++) {
-    if ((frames[i - 1] + 32) % 40 !== frames[i]) {
-      throw new Error(`hop frame ${i}: ${frames[i - 1]} -> ${frames[i]} is not one 8px slot`)
-    }
-  }
-
-  if (frames[5] !== frames[0]) {
-    throw new Error('the hop cycle must wrap to its resting frame')
+  // Monotone descending ladder so linear interpolation never slides backward:
+  // 40;32;24;16;8;0 = a constant-rate advance of one 8px slot per frame.
+  if (hopSeq !== '40;32;24;16;8;0') {
+    throw new Error(`hop must be the descending ladder, got "${hopSeq}"`)
   }
 
   if (!has(graphHtml, 'stroke-linecap="round"')) {

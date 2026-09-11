@@ -1888,8 +1888,11 @@ function GraphView({ trail }) {
     // Deterministic resting frame so the march freezes at a sane spot once the
     // stream goes idle (busy flips false): the last event's timestamp decides it.
     const phase = smilPhase(latestAt)
-    // five steps of one slot each, then the cycle wraps to the resting frame
-    const rotated = [0, 1, 2, 3, 4, 5].map(k => ((phase - k * 8) % 40 + 40) % 40).join(';')
+    // Fixed descending ladder: linear interpolation of a monotone list walks at
+    // a constant rate (offset 40 -> 0 == the dot advancing 0 -> 40 along the
+    // line), and repeats with exactly one wrap. A phase-rotated list would
+    // inject a +32 backward slide at its seam.
+    const ladder = '40;32;24;16;8;0'
     const stroke = active ? 'var(--ui-accent)' : 'var(--ui-stroke-tertiary)'
 
     children.push(
@@ -1936,9 +1939,9 @@ function GraphView({ trail }) {
               'animate',
               {
                 attributeName: 'stroke-dashoffset',
-                values: rotated,
+                values: ladder,
                 calcMode: 'linear',
-                dur: '1.2s',
+                dur: '1s',
                 repeatCount: 'indefinite'
               },
               `${key}:hop`

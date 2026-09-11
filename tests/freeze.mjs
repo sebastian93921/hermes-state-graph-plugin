@@ -41,21 +41,14 @@ check('the hop rests on a multiple of the 8px slot', () => {
     throw new Error(`rest ${hop?.[1]}`)
   }
 })
-check('the hop starts where it rests and steps the full 5 slots', () => {
-  const seq = (values?.[1] || '').split(';').map(Number)
-  if (seq.length !== 6) {
-    throw new Error(`expected 6 frames (5 steps + wrap), got ${seq.length}`)
+check('the hop is a constant-rate monotone ladder, and the rest is slot-aligned', () => {
+  if ((values?.[1] || '') !== '40;32;24;16;8;0') {
+    throw new Error(`ladder wrong: "${values?.[1]}"`)
   }
-  if (seq[0] !== Number(hop?.[1])) {
-    throw new Error(`first frame ${seq[0]} != resting offset ${hop?.[1]}`)
-  }
-  for (let i = 1; i < 5; i++) {
-    if ((seq[i - 1] + 32) % 40 !== seq[i]) {
-      throw new Error(`frame ${i}: ${seq[i - 1]} -> ${seq[i]} is not one 8px slot`)
-    }
-  }
-  if (seq[5] !== seq[0]) {
-    throw new Error(`the cycle must wrap to its start, got ${seq[5]}`)
+  const rest = Number(hop?.[1])
+  // the resting (static) offset must sit on one of the ladder's slot lines
+  if (rest % 8 !== 0 || rest > 40) {
+    throw new Error(`rest ${rest} is not on a slot line`)
   }
 })
 check('render is deterministic for the same stamp (frozen frame)', () => {
