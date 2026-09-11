@@ -1786,6 +1786,8 @@ function layoutGraph(trail, openLanes) {
 function GraphView({ trail }) {
   const scroller = useRef(null)
   const openLanes = useValue($expandedLanes)
+  // every hook runs before any early return, so the hook count is stable
+  const selected = useValue($detail)
   const openSet = new Set(
     Object.keys(openLanes)
       .filter(key => key.startsWith(`${trail?.sid}:`))
@@ -2337,7 +2339,6 @@ function GraphView({ trail }) {
     }
   }
 
-  const selected = useValue($detail)
   const openKey = selected && selected.startsWith(`${trail?.sid}:`)
     ? selected.slice(String(trail?.sid).length + 1)
     : ''
