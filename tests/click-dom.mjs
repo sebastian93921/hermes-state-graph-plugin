@@ -83,7 +83,12 @@ check('the pane mounts with the lane elided', () => {
 
 await click(chip())
 
-console.log('after click :', cards(), '| toggle:', chip()?.querySelector('text')?.textContent)
+const countLine = () => {
+  const texts = [...(chip()?.querySelectorAll('text') || [])]
+  return texts.length ? texts[texts.length - 1].textContent : ''
+}
+
+console.log('after click :', cards(), '| toggle:', countLine())
 console.log('atom        :', JSON.stringify($expandedLanes.get()))
 
 check('clicking the chip spells the hidden steps out', () => {
@@ -95,8 +100,14 @@ check('clicking the chip spells the hidden steps out', () => {
     throw new Error('the click did not set the open state')
   }
 
-  if (!chip()?.querySelector('text')?.textContent.includes('▴')) {
-    throw new Error('the chip did not become the collapse toggle')
+  if (!countLine().includes('▴')) {
+    throw new Error(`the chip did not become the collapse toggle: "${countLine()}"`)
+  }
+
+  const top = [...(chip()?.querySelectorAll('text') || [])][0]?.textContent || ''
+
+  if (!top.startsWith('click to collapse')) {
+    throw new Error(`first line is not the collapse sentence: "${top}"`)
   }
 })
 

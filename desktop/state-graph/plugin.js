@@ -1364,8 +1364,8 @@ const BAND_GAP = 24
 const PAD = 14
 const EDGE_LABEL_FONT = 9
 const LANE_MAX_CELLS = 6
-const GAP_W = 62
-const GAP_H = 22
+const GAP_W = 70
+const GAP_H = 26
 
 /** Node tint per kind — flat fills with white text, the palette the user asked
  *  the graph to follow. */
@@ -1915,7 +1915,7 @@ function GraphView({ trail }) {
   // The `… N` cell that stands in for an elided middle of a lane.
   // The elision chip. Clickable: it opens the lane's hidden middle, and when
   // open the same chip (at the end of the lane) closes it again.
-  const chipCard = (lane, col, label, key, onToggle, hint, extraClass) => {
+  const chipCard = (lane, col, lines, key, onToggle, hint, extraClass) => {
     const x = PAD + HEADER_W + HEADER_LEAD + col * CELL_W + (STEP_W - GAP_W) / 2
     const y = lane.y + (STEP_H - GAP_H) / 2
 
@@ -1942,18 +1942,25 @@ function GraphView({ trail }) {
               `${key}:rect`
             ),
             jsx('title', { children: hint }, `${key}:hint`),
-            jsx(
-              'text',
-              {
-                className: extraClass === 'sg-collapse' ? 'sg-collapse-label' : 'sg-gap-label',
-                x: x + GAP_W / 2,
-                y: y + GAP_H / 2 + 4,
-                fontSize: 10,
-                textAnchor: 'middle',
-                fill: 'var(--ui-text-tertiary)',
-                children: label
-              },
-              `${key}:label`
+            ...(lines || []).map((text, index) =>
+              jsx(
+                'text',
+                {
+                  className:
+                    index === 0
+                      ? `sg-chip-top ${extraClass || ''}`.trim()
+                      : extraClass === 'sg-collapse'
+                        ? 'sg-collapse-label'
+                        : 'sg-gap-label',
+                  x: x + GAP_W / 2,
+                  y: num(y + (index === 0 ? 10 : 22)),
+                  fontSize: index === 0 ? 7 : 9.5,
+                  textAnchor: 'middle',
+                  fill: index === 0 ? 'var(--ui-text-quaternary)' : 'var(--ui-text-tertiary)',
+                  children: text
+                },
+                `${key}:line${index}`
+              )
             )
           ]
         },
@@ -2048,7 +2055,9 @@ function GraphView({ trail }) {
           chipCard(
             lane,
             col,
-            isOpen ? `\u25b4 ${cell.hidden}` : `\u2026 ${cell.hidden}`,
+            isOpen
+              ? ['click to collapse', `\u25b4 ${cell.hidden}`]
+              : ['click to show all', `\u2026 ${cell.hidden}`],
             `${task.id}:${lane.id}:chip:${col}`,
             () => onToggleLane(task.id, lane.id),
             isOpen

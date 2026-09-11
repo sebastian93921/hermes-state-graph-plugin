@@ -52,6 +52,12 @@ check('collapsed: the lane is elided and the chip says what it hides', () => {
 
   const label = (collapsed.match(/class="sg-gap-label"[^>]*>([^<]*)</) || [])[1] || ''
 
+  const top = (collapsed.match(/class="sg-chip-top[^"]*"[^>]*>([^<]*)</) || [])[1] || ''
+
+  if (!top.startsWith('click to show all')) {
+    throw new Error(`first line is not the sentence: "${top}"`)
+  }
+
   if (!/…\s*\d+/.test(label)) {
     throw new Error(`chip label is not an ellipsis count: "${label}"`)
   }
