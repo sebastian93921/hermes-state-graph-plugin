@@ -1374,7 +1374,8 @@ const EDGE_LABEL_FONT = 9
 const LANE_MAX_CELLS = 6
 const GAP_W = 70
 const GAP_H = 26
-const SMIL_STEP = 250 // the 1.5s hop is six 250ms frames
+const SMIL_STEP = 200 // the 1.2s glide is six 200ms frames
+const ARROW_STOP = 8 // dotted layers end this far before the line end (arrow tip at -0.5)
 
 /** Which of the five hop frames the SMIL clock is on for a given event stamp.
  *  The last stamp before `busy` flips false is the frame the march rests on. */
@@ -1875,6 +1876,11 @@ function GraphView({ trail }) {
     // branch's first card — a straight diagonal would read as a chain link.
     const elbow = Number.isFinite(elbowAt)
     const d = elbow ? `M ${sx} ${sy} H ${num(elbowAt)} V ${ty} H ${tx}` : `M ${sx} ${sy} L ${tx} ${ty}`
+    // The dotted layers stop short of the arrowhead (its tip sits at tx-0.5),
+    // so a dot never rides across the triangle.
+    const dDots = elbow
+      ? `M ${sx} ${sy} H ${num(elbowAt)} V ${ty} H ${num(Math.max(sx, tx - ARROW_STOP))}`
+      : `M ${sx} ${sy} L ${num(Math.max(sx, tx - ARROW_STOP))} ${ty}`
 
     const dx = tx - sx
     const dy = ty - sy
@@ -1891,7 +1897,7 @@ function GraphView({ trail }) {
         'path',
         {
           className: elbow ? 'sg-edge sg-edge-fork' : 'sg-edge',
-          d,
+          d: active ? dDots : d,
           fill: 'none',
           stroke,
           strokeWidth: active ? 2.4 : 1.6,
@@ -1918,7 +1924,7 @@ function GraphView({ trail }) {
           'path',
           {
             className: 'sg-edge sg-edge-dot',
-            d,
+            d: dDots,
             fill: 'none',
             stroke: 'var(--ui-accent)',
             strokeWidth: 4.2,
@@ -1931,8 +1937,8 @@ function GraphView({ trail }) {
               {
                 attributeName: 'stroke-dashoffset',
                 values: rotated,
-                calcMode: 'discrete',
-                dur: '1.5s',
+                calcMode: 'linear',
+                dur: '1.2s',
                 repeatCount: 'indefinite'
               },
               `${key}:hop`

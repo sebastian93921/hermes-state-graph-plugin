@@ -318,8 +318,16 @@ check('flow is forward-only, no dashed loop-backs', () => {
     throw new Error('the fat-dot overlay is missing')
   }
 
-  if (!has(graphHtml, 'calcMode="discrete"')) {
-    throw new Error('the fat dot must hop slot-to-slot, not slide')
+  if (!has(graphHtml, 'calcMode="linear"')) {
+    throw new Error('the fat dot must glide with piecewise-linear interpolation')
+  }
+
+  // dotted layers stop 8px short of the line end so no dot crosses the arrowhead
+  const dotPath = (graphHtml.match(/class="sg-edge sg-edge-dot"[^>]*d="M ([\d.-]+) [\d.-]+ L ([\d.-]+) [\d.-]+"/) || [])[2]
+  const basePath = (graphHtml.match(/class="sg-edge"[^>]*d="M [\d.-]+ [\d.-]+ L ([\d.-]+) [\d.-]+"/) || [])[1]
+
+  if (dotPath && basePath && Number(dotPath) + 8 !== Number(basePath)) {
+    throw new Error(`dotted layer must end 8px before the line end: ${dotPath} vs ${basePath}`)
   }
 
   const hopSeq = (graphHtml.match(/attributeName="stroke-dashoffset" values="([^"]*)"/) || [])[1] || ''
