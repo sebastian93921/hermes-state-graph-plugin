@@ -1,0 +1,17 @@
+name: state-graph
+version: "0.1.0"
+description: >-
+  Agent-authored work summaries for the State Graph desktop plugin. Registers
+  `state_graph_note`, which the agent calls to say — in one short sentence —
+  what it is working on right now. The desktop half puts that sentence on the
+  state-graph nodes and groups the tool cards under it, so the user reads the
+  WORK (what is being built, which file is being changed, what is being
+  investigated) instead of a wall of tool calls. Nothing is inferred from tool
+  args: without a note the nodes show only the concrete activity.
+author: NousResearch
+kind: backend
+provides_tools:
+  - state_graph_note
+provides_hooks:
+  - pre_llm_call
+  - pre_tool_call

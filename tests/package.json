@@ -1,0 +1,17 @@
+{
+  "name": "hermes-state-graph-tests",
+  "private": true,
+  "type": "module",
+  "description": "Offline harness for the State Graph desktop plugin: renders the real component against real gateway-shaped events.",
+  "scripts": {
+    "test": "node run.mjs && node structure.mjs && node fork.mjs && node click.mjs && node long.mjs",
+    "test:dom": "node click-dom.mjs"
+  },
+  "dependencies": {
+    "@nanostores/react": "^1.0.0",
+    "jsdom": "^25.0.0",
+    "nanostores": "^0.11.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
