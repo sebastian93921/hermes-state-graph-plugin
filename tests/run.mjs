@@ -310,8 +310,12 @@ check('state_graph_note never becomes a task, a step, or a card', () => {
 check('flow is forward-only, no dashed loop-backs', () => {
   // The only dash pattern now is the marching 6/6 dash of the ACTIVE edge
   // (the old static dashed back-edge is gone). Animate lives in its place.
-  if (!has(graphHtml, 'stroke-dasharray="6 6"')) {
-    throw new Error('the active edge lost its marching dash')
+  if (!has(graphHtml, 'stroke-dasharray="0.1 7"')) {
+    throw new Error('the active edge lost its marching dot pattern')
+  }
+
+  if (!has(graphHtml, 'stroke-linecap="round"')) {
+    throw new Error('the marching dots need round caps')
   }
 
   if (!has(graphHtml, '<animate')) {

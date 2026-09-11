@@ -1871,16 +1871,18 @@ function GraphView({ trail }) {
           strokeWidth: active ? 2.4 : 1.6,
           opacity: active ? 1 : 0.75,
           markerEnd: `url(#${active ? `${markerId}-on` : markerId})`,
-          ...(active ? { strokeDasharray: '6 6', strokeDashoffset: 12 } : {}),
           ...(active
             ? {
+                strokeDasharray: '0.1 7',
+                strokeLinecap: 'round',
+                strokeDashoffset: 8,
                 children: jsx(
                   'animate',
                   {
                     attributeName: 'stroke-dashoffset',
-                    from: 12,
+                    from: 8,
                     to: 0,
-                    dur: '1.1s',
+                    dur: '1.2s',
                     repeatCount: 'indefinite'
                   },
                   `${key}:march`
