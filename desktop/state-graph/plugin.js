@@ -57,6 +57,7 @@ const $follow = atom(true) // follow the focused chat, or pin one
 const $expandedLanes = atom({}) // 'sid:taskId|laneId' -> the elided middle is open
 const $pinned = atom('') // pinned runtime session id
 const $detail = atom('') // 'sid:nodeKey' of the node the last click inspected
+const $tick = atom(0) // 200ms clock driving the live elapsed stamp
 
 const emptyTrail = sid => ({
   sid,
@@ -65,6 +66,8 @@ const emptyTrail = sid => ({
   turn: 0,
   seeded: false,
   drafting: '',
+  answer: '',
+  answerKey: '',
   phase: '',
   workSource: '',
   tasks: [],
@@ -164,6 +167,7 @@ function touchNode(draft, key, kind, name, status, at, summary, place) {
     ...existing,
     kind: existing.kind || kind,
     name: existing.name || name || key,
+    text: existing.text,
     row: place?.row ?? existing.row ?? 0,
     summary: summary || existing.summary || '',
     status,
@@ -172,6 +176,49 @@ function touchNode(draft, key, kind, name, status, at, summary, place) {
   }
 
   return true
+}
+
+/** Clock tiers: `0.8s` under a minute, `2m 05s` past it, `1h 04m 09s` past an hour. */
+function elapsedLabel(secs) {
+  const whole = Math.round(secs)
+
+  if (secs > 0 && secs < 10) {
+    return `${secs.toFixed(1)}s`
+  }
+
+  if (whole < 60) {
+    return `${whole}s`
+  }
+
+  if (whole < 3600) {
+    return `${Math.floor(whole / 60)}m ${String(whole % 60).padStart(2, '0')}s`
+  }
+
+  const h = Math.floor(whole / 3600)
+  const m = Math.floor((whole % 3600) / 60)
+
+  return `${h}h ${String(m).padStart(2, '0')}m ${String(whole % 60).padStart(2, '0')}s`
+}
+
+/** Seconds the open call has been running, read at render time. */
+function elapsedOf(trail) {
+  const cards = trail?.cards || []
+  const open = cards.filter(card => card.status === 'running' || card.status === 'drafting').slice(-1)[0]
+  let started = open?.endedAt ? open.startedAt : open?.startedAt
+
+  // A state node (thinking / answering) has no card: fall back to the live
+  // node's own first stamp so its clock counts too.
+  if (!started) {
+    const live = trail?.nodes?.[trail.current]
+
+    started = live && live.status === 'active' ? live.firstAt : 0
+  }
+
+  if (!Number.isFinite(started) || !started) {
+    return 0
+  }
+
+  return Math.max(0, (Date.now() - started) / 1000)
 }
 
 /** One counted transition between two states. `via` is the label the diagram
@@ -214,6 +261,14 @@ function enter(draft, baseKey, kind, name, status, at, fallback) {
   // Same state, same place in the run: refresh it in place.
   if (current && current.baseKey === baseKey && current.taskId === taskId && current.lane === lane) {
     if (current.status === status && current.name === name) {
+      // The node keeps its identity, but its clock must still run: push the last
+      // stamp forward so a long-running state (thinking) does not freeze at 0s.
+      if (Number.isFinite(at) && at > (Number(current.lastAt) || 0)) {
+        draft.nodes[draft.current] = { ...current, lastAt: at }
+
+        return true
+      }
+
       return false
     }
 
@@ -646,11 +701,42 @@ function handleEvent(event) {
   // covers thinking + reasoning — two nodes for the same visible activity made
   // the diagram noisier than the run.
   if (type === 'message.delta' || type === 'message.interim') {
-    if (trail?.current === 'answering') {
+    const text = typeof payload?.text === 'string' ? payload.text : ''
+
+    if (!text) {
       return
     }
 
-    mutate(sid, draft => enter(draft, 'answering', 'state', 'answering', 'active', at))
+    // One write per token: accumulate the text AND stamp it on the live node, so
+    // an interim answer shows its own words instead of the bare `answering` tag.
+    mutate(sid, draft => {
+      if (draft.current !== 'answering' && draft.nodes[draft.current]?.baseKey !== 'answering') {
+        enter(draft, 'answering', 'state', 'answering', 'active', at)
+      }
+
+      const node = draft.nodes[draft.current]
+
+      if (!node) {
+        return
+      }
+
+      // One buffer per answer node: the first token of a new node starts it, the
+      // rest extend the segment in flight (so an interim answer and the final one
+      // never merge their text).
+      if (draft.answerKey !== draft.current) {
+        draft.answerKey = draft.current
+        draft.answer = ''
+      }
+
+      draft.answer = (draft.answer || '') + text
+
+      draft.nodes[draft.current] = {
+        ...node,
+        name: clip(draft.answer, 240),
+        text: draft.answer,
+        lastAt: at
+      }
+    })
 
     return
   }
@@ -686,16 +772,33 @@ function handleEvent(event) {
 
       mutate(sid, draft => {
         draft.drafting = ''
+        const answer = clip(draft.answer || '', 240) || (failed ? 'failed' : 'done')
+        draft.answerFull = draft.answer || ''
+        const live = draft.nodes[draft.current]
+
+        // The streamed node already carries the text: promote it in place instead
+        // of opening a twin node with the same words.
+        if (live && live.baseKey === 'answering') {
+          draft.nodes[draft.current] = {
+            ...live,
+            baseKey: failed ? 'failed' : 'done',
+            text: draft.answer || String(live.name || '')
+          }
+          draft.currentBase = failed ? 'failed' : 'done'
+        }
+
         enter(
           draft,
           failed ? 'failed' : 'done',
           failed ? 'error' : 'state',
-          failed ? 'failed' : 'done',
+          answer,
           failed ? 'error' : 'done',
-          at
+          at,
+          answer
         )
         draft.status = failed ? 'error' : 'done'
         draft.endedAt = at
+        draft.answer = ''
       })
 
       return
@@ -913,6 +1016,38 @@ async function seedFromHistory(sid) {
     let lastStep = ''
 
     for (const message of recent) {
+      if (message?.role === 'assistant' && typeof message.content === 'string' && message.content) {
+        const answerKey = `${draft.currentTask || 'T0'}|main|done~seed${draft.seq + 1}`
+
+        if (
+          touchNode(
+            draft,
+            answerKey,
+            'state',
+            clip(firstLine(message.content), 240),
+            'done',
+            0,
+            noteCursor || '',
+            { baseKey: 'done', lane: 'main', row: rowInTask, taskId: draft.currentTask || 'T0' }
+          )
+        ) {
+          if (lastStep) {
+            recordEdge(draft, lastStep, answerKey, 0, '')
+          }
+
+          draft.answer = String(message.content)
+          if (draft.nodes[answerKey]) {
+            draft.nodes[answerKey].text = String(message.content)
+          }
+
+          lastStep = answerKey
+          rowInTask += 1
+        }
+
+        draft.seq += 1
+        continue
+      }
+
       if (message?.role !== 'tool' || !message?.name) {
         continue
       }
@@ -1379,6 +1514,22 @@ const SMIL_STEP = 200 // the 1.2s glide is six 200ms frames
 const WEIGHT_MAX_BARS = 3 // the rest of the weight names fold into an ellipsis
 const ARROW_STOP = 8 // dotted layers end this far before the line end (arrow tip at -0.5)
 
+/** Seconds a node was live: the clock for the node still open, its own stamps
+ *  for one that already moved on. 0 means "no stamps yet" (seeded history). */
+function nodeElapsed(trail, key) {
+  const node = trail?.nodes?.[key]
+  const from = Number(node?.firstAt) || 0
+
+  if (!from) {
+    return 0
+  }
+
+  const open = key === trail?.current && !trail?.endedAt
+  const to = open ? Date.now() : Number(node?.lastAt) || from
+
+  return Math.max(0, (to - from) / 1000)
+}
+
 /** Which of the five hop frames the SMIL clock is on for a given event stamp.
  *  The last stamp before `busy` flips false is the frame the march rests on. */
 const smilPhase = at => {
@@ -1401,6 +1552,13 @@ const KIND_FILL = {
   subagent: 'var(--ui-orange)',
   task: 'var(--ui-blue)',
   tool: 'var(--ui-purple)'
+}
+
+/** The terminal states get their own hue so the answer reads apart from the
+ *  tool chain at a glance: orange for a delivered answer, red for a failure. */
+const BASE_TINT = {
+  done: 'var(--ui-orange)',
+  failed: 'var(--ui-red)'
 }
 
 const cardFill = (kind, dim) =>
@@ -1484,6 +1642,29 @@ function nodeDetail(trail, key) {
 
   const rows = []
 
+  // An answer node — the final one or an interim `message.interim` segment —
+  // shows nothing but its own text, in full, as markdown. `node.text` is the
+  // segment's unclipped body; the card only carries the clipped title.
+  if (
+    node.kind === 'state' &&
+    (node.baseKey === 'done' || node.baseKey === 'failed' || node.baseKey === 'answering')
+  ) {
+    const isLive = trail?.current === key
+    const text = String(
+      node.text ||
+        (isLive ? trail?.answer || '' : '') ||
+        trail?.answerFull ||
+        node.name ||
+        ''
+    )
+
+    if (text) {
+      rows.push({ label: 'step', value: text, markdown: true })
+    }
+
+    return { title: node.kind || key, rows, bars: null, barTotal: 0, barOps: 0 }
+  }
+
   if (node.summary) {
     rows.push({ label: 'task', value: node.summary })
   }
@@ -1545,6 +1726,147 @@ function nodeDetail(trail, key) {
     barTotal: total,
     barOps: ops
   }
+}
+
+/** Minimal markdown for the detail box: headings, lists, fenced code, and
+ *  inline bold/italic/code. Returns plain element trees the kit can render. */
+function parseInline(text, key) {
+  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\n]+\*|_[^_\n]+_|~~[^~]+~~)/g
+  const parts = String(text).split(pattern).filter(part => part !== '' && part !== undefined)
+
+  return parts.map((part, index) => {
+    const token = String(part)
+    const id = `${key}:${index}`
+
+    if (token.startsWith('`') && token.endsWith('`') && token.length > 1) {
+      return jsx(
+        'code',
+        {
+          className: 'px-0.5 rounded-[2px] font-mono text-(--ui-text-secondary)',
+          style: { backgroundColor: 'var(--ui-bg-quaternary)' },
+          children: token.slice(1, -1)
+        },
+        id
+      )
+    }
+
+    if (/^\*\*[\s\S]+\*\*$/.test(token) || /^__[^_]+__$/.test(token)) {
+      const inner = token.replace(/^\*\*|^__/, '').replace(/\*\*$|__$/, '')
+
+      return jsx(
+        'span',
+        { style: { fontWeight: 700 }, children: parseInline(inner, id) },
+        id
+      )
+    }
+
+    if (/^\*[\s\S]+\*$/.test(token) || /^_[^_\n]+_$/.test(token)) {
+      return jsx(
+        'i',
+        { children: token.replace(/^[_*]|[_*]$/g, '') },
+        id
+      )
+    }
+
+    if (/^~~[^~]+~~$/.test(token)) {
+      return jsx(
+        'span',
+        { style: { textDecoration: 'line-through' }, children: token.slice(2, -2) },
+        id
+      )
+    }
+
+    return jsx('span', { children: token }, id)
+  })
+}
+
+function renderMarkdown(text, keyBase) {
+  const lines = String(text || '').split('\n')
+  const out = []
+  let list = null
+
+  const push = (node) => {
+    out.push(node)
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+
+    if (/^\s*```/.test(line)) {
+      const body = []
+
+      for (i += 1; i < lines.length && !/^\s*```/.test(lines[i]); i += 1) {
+        body.push(lines[i])
+      }
+
+      push(
+        jsx(
+          'pre',
+          {
+            className: 'my-1 p-1.5 overflow-auto rounded-[3px] bg-(--ui-bg-quaternary) font-mono',
+            children: body.join('\n')
+          },
+          `${keyBase}:cb${out.length}`
+        )
+      )
+
+      continue
+    }
+
+    const trimmed = line.replace(/\s+$/, '')
+
+    if (!trimmed.trim()) {
+      continue
+    }
+
+    const head = trimmed.match(/^(#{1,4})\s+(.*)$/)
+    const bullet = trimmed.match(/^\s*[-*+]\s+(.*)$/)
+    const numbered = trimmed.match(/^\s*(\d+)[.)]\s+(.*)$/)
+
+    if (head) {
+      push(
+        jsx(
+          'span',
+          {
+            className: 'block',
+            style: { fontWeight: 700 },
+            children: parseInline(head[2], `${keyBase}:h${i}`)
+          },
+          `${keyBase}:h${i}`
+        )
+      )
+      list = null
+      continue
+    }
+
+    if (bullet || numbered) {
+      const marker = numbered ? `${numbered[1]}.` : '•'
+      const body = numbered ? numbered[2] : bullet[1]
+      const items = list ?? []
+
+      items.push(
+        jsx(
+          'span',
+          {
+            className: 'flex gap-1',
+            children: [
+              jsx('span', { style: { color: 'var(--ui-text-quaternary)' }, children: marker }, `${keyBase}:m${i}`),
+              jsx('span', { className: 'min-w-0 flex-1', children: parseInline(body, `${keyBase}:b${i}`) }, `${keyBase}:t${i}`)
+            ]
+          },
+          `${keyBase}:li${i}`
+        )
+      )
+      list = items
+      out.push(items[items.length - 1])
+      continue
+    }
+
+    push(jsx('span', { className: 'block', children: parseInline(trimmed.trim(), `${keyBase}:p${i}`) }, `${keyBase}:p${i}`))
+    list = null
+  }
+
+  return out
 }
 
 /** Wrap a title into at most two lines for a card. */
@@ -1864,6 +2186,7 @@ function layoutGraph(trail, openLanes) {
 
 function GraphView({ trail }) {
   const scroller = useRef(null)
+  const tick = useValue($tick)
   const openLanes = useValue($expandedLanes)
   // every hook runs before any early return, so the hook count is stable
   const selected = useValue($detail)
@@ -1872,6 +2195,12 @@ function GraphView({ trail }) {
       .filter(key => key.startsWith(`${trail?.sid}:`))
       .map(key => key.slice(String(trail?.sid).length + 1))
   )
+  useEffect(() => {
+    const id = setInterval(() => $tick.set($tick.get() + 1), 100)
+
+    return () => clearInterval(id)
+  }, [])
+
   const layout = trail && trail.order.length ? layoutGraph(trail, openSet) : null
 
   const onToggleLane = (taskId, laneId) => {
@@ -1953,7 +2282,7 @@ function GraphView({ trail }) {
   const markerId = `sg-arrow-${String(trail.sid || 'x').replace(/[^a-zA-Z0-9]/g, '')}`
 
   // A card: flat tinted fill, white title, optional halo for the live step.
-  const card = ({ key, x, y: cardY, w, h, title, kind, dim, halo, meta, centered, role = 'step' }) => {
+  const card = ({ key, x, y: cardY, w, h, title, kind, dim, halo, meta, centered, role = 'step', tint }) => {
     const lines = wrapTitle(title, Math.floor(w / 6.4), 2)
     const firstBaseline = cardY + h / 2 - (lines.length - 1) * 6 + 3.5
 
@@ -1996,7 +2325,7 @@ function GraphView({ trail }) {
           width: w,
           height: h,
           rx: 8,
-          fill: cardFill(kind, dim),
+          fill: tint || cardFill(kind, dim),
           opacity: dim ? 0.85 : 1
         },
         `${key}:rect`
@@ -2045,6 +2374,30 @@ function GraphView({ trail }) {
           `${key}:hit`
         )
       )
+    }
+
+    // Every card carries its own clock: the open node counts up, a node that
+    // moved on keeps the seconds it held.
+    if (role === 'step' && trail?.nodes?.[key]?.firstAt) {
+      const secs = nodeElapsed(trail, key)
+
+      if (Number.isFinite(secs)) {
+        children.push(
+          jsx(
+            'text',
+            {
+              className: 'sg-node-time',
+              x: x + w / 2,
+              y: cardY + h + 9,
+              fontSize: EDGE_LABEL_FONT,
+              textAnchor: 'middle',
+              fill: trail?.current === key ? 'var(--ui-accent)' : 'var(--ui-text-quaternary)',
+              children: elapsedLabel(secs)
+            },
+            `${key}:elapsed`
+          )
+        )
+      }
     }
 
     if (meta) {
@@ -2159,6 +2512,30 @@ function GraphView({ trail }) {
     }
 
     const text = clip(String(label || ''), 22)
+
+    // The live edge also carries the stopwatch: how long this call has been up.
+    if (active && length >= 40) {
+      const secs = tick >= 0 ? elapsedOf(trail) : 0
+      const stamp = elapsedLabel(secs)
+      const tmid = { x: (sx + tx) / 2, y: (sy + ty) / 2 }
+      const tnorm = Math.max(1, length)
+
+      children.push(
+        jsx(
+          'text',
+          {
+            className: 'sg-edge-label sg-edge-time',
+            x: num(tmid.x - (dy / tnorm) * 7),
+            y: num(tmid.y - (dx / tnorm) * 7),
+            fontSize: EDGE_LABEL_FONT,
+            textAnchor: 'middle',
+            fill: 'var(--ui-accent)',
+            children: stamp
+          },
+          `${key}:time`
+        )
+      )
+    }
 
     if (elbow || !text || length < 72) {
       return
@@ -2443,6 +2820,7 @@ function GraphView({ trail }) {
           halo: isCurrent,
           kind: step.kind,
           dim: false,
+          tint: BASE_TINT[String(step.baseKey || '')] || '',
           title: step.name,
           centered: true
         })
@@ -2526,15 +2904,17 @@ function GraphView({ trail }) {
                           className: 'w-14 shrink-0 pt-0.5 text-(--ui-text-quaternary) uppercase tracking-wide',
                           children: row.label
                         }),
-                        jsx(row.mono ? 'pre' : 'span', {
+                        jsx(row.markdown ? 'div' : row.mono ? 'pre' : 'span', {
                           style: { maxHeight: '120px' },
-                          className: row.mono
-                            ? cn(
-                                'min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all rounded-[3px] p-1.5',
-                                'bg-(--ui-bg-quaternary) font-mono text-(--ui-text-secondary)'
-                              )
-                            : 'min-w-0 flex-1 overflow-auto break-all text-(--ui-text-secondary)',
-                          children: row.value
+                          className: row.markdown
+                            ? 'min-w-0 flex-1 flex flex-col gap-0.5 overflow-auto break-all text-(--ui-text-secondary)'
+                            : row.mono
+                              ? cn(
+                                  'min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all rounded-[3px] p-1.5',
+                                  'bg-(--ui-bg-quaternary) font-mono text-(--ui-text-secondary)'
+                                )
+                              : 'min-w-0 flex-1 overflow-auto break-all text-(--ui-text-secondary)',
+                          children: row.markdown ? renderMarkdown(row.value, row.label) : row.value
                         }),
                         row.copy
                           ? jsx(CopyButton, {
@@ -3084,4 +3464,4 @@ export default {
 // these extra named exports are inert at runtime — they let an offline harness
 // (and a debugging session) drive the real renderer and read the real store
 // instead of standing up a second module instance with its own atoms.
-export { GraphView, layoutGraph, ToolCard, nodeDetail, $trails, $expanded, $expandedLanes, $detail }
+export { GraphView, layoutGraph, ToolCard, nodeDetail, elapsedLabel, nodeElapsed, $trails, $tick, $expanded, $expandedLanes, $detail }
