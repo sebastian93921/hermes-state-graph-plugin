@@ -126,7 +126,7 @@ check('the fork node is on screen, and the branch hangs off IT', () => {
     throw new Error(`branches start at ${a0.x}, not right of the fork node ${fork.x}`)
   }
 
-  const elbowsHere = elbows.filter(d => Number(d.match(/^M ([\d.-]+)/)[1]) === fork.x + 190)
+  const elbowsHere = elbows.filter(d => Number(d.match(/^M ([\d.-]+)/)[1]) === fork.x + 148)
 
   if (elbowsHere.length !== 2) {
     throw new Error(`expected 2 elbows leaving the fork node, found ${elbowsHere.length}`)

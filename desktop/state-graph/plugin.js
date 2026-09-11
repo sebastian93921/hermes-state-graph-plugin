@@ -1353,19 +1353,19 @@ function ToolCard({ card, expanded, onToggle, onReveal }) {
 // labelled connectors this is modelled on. Nothing is inferred: a card's title
 // is either the agent's own summary or a concrete activity.
 
-const CELL_W = 292
-const STEP_W = 190
-const STEP_H = 46
-const LANE_ROW_H = 64
-const HEADER_W = 214
-const HEADER_LEAD = 140
-const HEADER_H = 58
-const BAND_GAP = 30
-const PAD = 18
+const CELL_W = 226
+const STEP_W = 148
+const STEP_H = 38
+const LANE_ROW_H = 52
+const HEADER_W = 168
+const HEADER_LEAD = 108
+const HEADER_H = 46
+const BAND_GAP = 24
+const PAD = 14
 const EDGE_LABEL_FONT = 9
 const LANE_MAX_CELLS = 6
-const GAP_W = 76
-const GAP_H = 26
+const GAP_W = 62
+const GAP_H = 22
 
 /** Node tint per kind — flat fills with white text, the palette the user asked
  *  the graph to follow. */
@@ -1681,7 +1681,7 @@ function layoutGraph(trail, openLanes) {
         lane.forkFrom = {
           x: num(box.x + box.w),
           y: num(box.y + box.h / 2),
-          elbow: num(box.x + box.w + 18)
+          elbow: num(box.x + box.w + 14)
         }
       }
     }
@@ -1752,8 +1752,8 @@ function GraphView({ trail }) {
 
   // A card: flat tinted fill, white title, optional halo for the live step.
   const card = ({ key, x, y: cardY, w, h, title, kind, dim, halo, meta, centered, role = 'step' }) => {
-    const lines = wrapTitle(title, Math.floor(w / 10.5), 2)
-    const firstBaseline = cardY + h / 2 - (lines.length - 1) * 7 + 4
+    const lines = wrapTitle(title, Math.floor(w / 6.4), 2)
+    const firstBaseline = cardY + h / 2 - (lines.length - 1) * 6 + 3.5
 
     if (halo) {
       children.push(
@@ -1761,11 +1761,11 @@ function GraphView({ trail }) {
           'rect',
           {
             className: 'sg-halo',
-            x: x - 7,
-            y: cardY - 7,
-            width: w + 14,
-            height: h + 14,
-            rx: 11,
+            x: x - 5,
+            y: cardY - 5,
+            width: w + 10,
+            height: h + 10,
+            rx: 9,
             fill: 'color-mix(in srgb, var(--ui-accent) 14%, transparent)'
           },
           `${key}:halo`
@@ -1796,9 +1796,9 @@ function GraphView({ trail }) {
           'text',
           {
             className: role === 'task' ? 'sg-task-label' : 'sg-activity',
-            x: centered ? x + w / 2 : x + 12,
-            y: firstBaseline + index * 14,
-            fontSize: 11.5,
+            x: centered ? x + w / 2 : x + 9,
+            y: firstBaseline + index * 12,
+            fontSize: 10,
             fontWeight: 600,
             textAnchor: centered ? 'middle' : 'start',
             fill: '#fff',
@@ -1816,8 +1816,8 @@ function GraphView({ trail }) {
           'text',
           {
             className: 'sg-task-meta',
-            x: centered ? x + w / 2 : x + 12,
-            y: cardY + h - 8,
+            x: centered ? x + w / 2 : x + 9,
+            y: cardY + h - 6,
             fontSize: 8.5,
             textAnchor: centered ? 'middle' : 'start',
             fill: '#fff',

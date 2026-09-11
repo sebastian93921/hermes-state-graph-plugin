@@ -24,6 +24,7 @@ node long.mjs               # a 30-step lane stays finite and elided
 | `structure.mjs` | When a lane is long *and* has branches, does the fork node stay visible between two `… N` chips, with the branches hanging off it? |
 | `fork.mjs` | Do two branches off one node leave from the same point, one cell to the right? |
 | `click.mjs` | Is the chip clickable state wired (open spells the hidden steps out, the toggle moves to the lane end and closes it)? |
+| `fit.mjs` | At the current card size, do the wrapped titles still fit the 148x38 card, and do the two baselines stay inside the 38px height? |
 | `click-dom.mjs` | Does a real `MouseEvent` on the chip actually flip the store? SSR cannot prove a handler — this mounts the component in jsdom. |
 | `long.mjs` | A single long lane: does anything go `NaN`, and does it stay elided? |
 
@@ -37,8 +38,10 @@ node long.mjs               # a 30-step lane stays finite and elided
   app's Vite build, but the stub is enough to prove the plugin's own tree renders,
   its hooks are legal, and its store plumbing works.
 - Geometry assertions are in **plugin units**: `CELL_W` is the column pitch, so a
-  branch one cell right of its fork node is `fork.x + CELL_W`. Read the constants
-  at the top of `plugin.js` rather than hardcoding numbers.
+  branch one cell right of its fork node is `fork.x + CELL_W`, and an elbow leaves
+  the card's right edge at `fork.x + STEP_W`. The probes hardcode the current
+  constants (`CELL_W` 226, `STEP_W` 148) — if you retune the geometry block at the
+  top of `plugin.js`, update those numbers in `fork.mjs`/`structure.mjs`/`fit.mjs`.
 - A trap worth knowing if you add probes: `markerEnd="url(...)"` contains the
   substring `d="`, so `/d="([^"]+)"/` matches it. Anchor on the path —
   `/d="(M [^"]*)"/`.

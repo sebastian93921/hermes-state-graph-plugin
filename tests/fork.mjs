@@ -103,15 +103,15 @@ check('the branches share one column, right of the spawn node', () => {
     throw new Error(`branch column ${c1.x} is not right of the spawn node (${spawn.x})`)
   }
 
-  if ((c1.x - spawn.x) % 292 !== 0) {
+  if ((c1.x - spawn.x) % 226 !== 0) {
     throw new Error(`branch column ${c1.x} is not a whole number of cells from the spawn node (${spawn.x})`)
   }
 
   // The branch head is the worker's own card (the subagent marker), one cell
   // right of the node that spawned it.
   const head = byKey('subagent')
-  if (!head || head.x !== spawn.x + 292) {
-    throw new Error(`branch head is not one cell right of the spawn node: ${JSON.stringify(head)} vs ${spawn.x + 292}`)
+  if (!head || head.x !== spawn.x + 226) {
+    throw new Error(`branch head is not one cell right of the spawn node: ${JSON.stringify(head)} vs ${spawn.x + 226}`)
   }
 })
 
@@ -142,7 +142,7 @@ check('two elbows leave the spawn node from the same point', () => {
     throw new Error(`fork path is not an orthogonal elbow: ${forks.join(' || ')}`)
   }
 
-  const expectX = spawn.x + 190 // STEP_W: the spawn card's right edge
+  const expectX = spawn.x + 148 // STEP_W: the spawn card's right edge
 
   if (starts.some(s => Number(s[1]) !== expectX)) {
     throw new Error(`elbow does not leave the spawn node's right edge: ${starts.map(s => s[1]).join(',')} vs ${expectX}`)
