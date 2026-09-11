@@ -1408,6 +1408,93 @@ const cardFill = (kind, dim) =>
 /** Rows shown under the graph for the clicked node: the agent's own words for
  *  the step, plus the tool card's payload when one matches the node's tool.
  *  Nothing is invented — a field is only emitted when the store carries it. */
+/** Fold a task's tool cards into weight entries: per tool name the seconds it
+ *  took plus how many times it ran. Width is weight, as the trace viewers do. */
+function taskWeights(trail, node) {
+  const taskText = node?.summary || ''
+  const cards = (trail.cards || []).filter(
+    card => !card.seeded && (!taskText || !card.phase || card.phase === taskText)
+  )
+  const byName = new Map()
+  let total = 0
+
+  for (const card of cards) {
+    const seconds = num(card.durationS, 0)
+    const seen = byName.get(card.name) || { seconds: 0, ops: 0 }
+
+    seen.seconds += seconds
+    seen.ops += 1
+    byName.set(card.name, seen)
+    total += seconds
+  }
+
+  const bars = Array.from(byName.entries())
+    .map(([label, entry]) => ({
+      label,
+      ops: entry.ops,
+      seconds: entry.seconds,
+      share: total > 0 ? entry.seconds / total : 0
+    }))
+    .sort((a, b) => b.seconds - a.seconds || a.label.localeCompare(b.label))
+    .slice(0, 6)
+
+  return { bars, total, ops: cards.length }
+}
+
+/** The distinct file/object paths a task touched, in first-seen order. */
+function taskObjects(trail, node) {
+  const taskText = node?.summary || ''
+  const cards = (trail.cards || []).filter(
+    card => !card.seeded && (!taskText || !card.phase || card.phase === taskText)
+  )
+  const seen = new Map()
+
+  for (const card of cards) {
+    const path = pickPath(card.args)
+
+    if (!path) {
+      continue
+    }
+
+    seen.set(path, (seen.get(path) || 0) + 1)
+  }
+
+  return Array.from(seen.entries()).slice(0, 8)
+}
+
+/** The weight of the task the trail is on, straight from the cards — no node
+ *  selection needed: the current task sentence is the group key. */
+function footerWeight(trail) {
+  const taskText = trail?.phase || ''
+  const cards = (trail?.cards || []).filter(
+    card => !card.seeded && (!taskText || !card.phase || card.phase === taskText)
+  )
+  const byName = new Map()
+  let total = 0
+
+  for (const card of cards) {
+    const seconds = num(card.durationS, 0)
+    const seen = byName.get(card.name) || { seconds: 0, ops: 0 }
+
+    seen.seconds += seconds
+    seen.ops += 1
+    byName.set(card.name, seen)
+    total += seconds
+  }
+
+  const bars = Array.from(byName.entries())
+    .map(([label, entry]) => ({
+      label,
+      ops: entry.ops,
+      seconds: entry.seconds,
+      share: total > 0 ? entry.seconds / total : 0
+    }))
+    .sort((a, b) => b.seconds - a.seconds || a.label.localeCompare(b.label))
+    .slice(0, 6)
+
+  return bars.length ? { bars, barTotal: total, barOps: cards.length } : null
+}
+
 function nodeDetail(trail, key) {
   const node = trail?.nodes?.[key]
 
@@ -1465,7 +1552,21 @@ function nodeDetail(trail, key) {
     rows.push({ label: 'repeats', value: `x${node.count}` })
   }
 
-  return rows.length ? { title: toolName || node.kind || key, rows } : null
+  const { bars, total, ops } = taskWeights(trail, node)
+  const objects = taskObjects(trail, node)
+
+  if (!rows.length) {
+    return null
+  }
+
+  return {
+    title: toolName || node.kind || key,
+    rows,
+    bars: bars.length ? bars : null,
+    barTotal: total,
+    barOps: ops,
+    objects: objects.length ? objects : null
+  }
 }
 
 /** Wrap a title into at most two lines for a card. */
@@ -2549,7 +2650,7 @@ function Legend({ trail }) {
   }
 
   return jsx('div', {
-    className: 'flex flex-wrap items-center gap-2 border-t border-(--ui-stroke-quaternary) px-2 py-1 text-(--ui-text-quaternary)',
+    className: 'flex min-w-0 flex-wrap items-center justify-end gap-2',
     children: items.map(kind =>
       jsxs(
         'span',
@@ -2569,18 +2670,111 @@ function Legend({ trail }) {
   })
 }
 
+/** The weight strip: width is the share of the task's wall-time each tool
+ *  name took, so like-for-like tasks read at a glance. */
+function WeightStrip({ detail }) {
+  if (!detail || !detail.bars || !detail.bars.length) {
+    return null
+  }
+
+  return jsxs('div', {
+    className: 'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5',
+    children: [
+      jsxs('span', {
+        className: 'shrink-0 uppercase tracking-wide text-(--ui-text-quaternary)',
+        children: ['weight ', `${detail.barOps} ops · ${detail.barTotal.toFixed(1)}s`]
+      }),
+      ...detail.bars.map(bar =>
+        jsxs(
+          'span',
+          {
+            className: 'flex items-center gap-1',
+            children: [
+              jsx('span', {
+                className: 'shrink-0 font-mono text-(--ui-text-tertiary)',
+                children: `${bar.label}${bar.ops > 1 ? ` x${bar.ops}` : ''}`
+              }),
+              jsx('span', {
+                'aria-hidden': 'true',
+                className: 'block h-1 shrink-0 overflow-hidden rounded-[2px] bg-(--ui-bg-quaternary)',
+                style: { width: '34px' },
+                children: jsx('span', {
+                  className: 'block h-full rounded-[2px] bg-(--ui-accent)',
+                  style: {
+                    width: `${Math.round((Number.isFinite(bar.share) ? bar.share : 0) * 100)}%`
+                  }
+                })
+              }),
+              jsx('span', {
+                className: 'shrink-0 font-mono text-(--ui-text-quaternary)',
+                children: `${bar.seconds.toFixed(1)}s`
+              })
+            ]
+          },
+          `bar:${bar.label}`
+        )
+      )
+    ]
+  })
+}
+
+/** The distinct file paths the task touched, as one compact run of chips. */
+function FilesInline({ detail }) {
+  if (!detail || !detail.objects || !detail.objects.length) {
+    return null
+  }
+
+  return jsxs('div', {
+    className: 'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5',
+    children: [
+      jsx('span', {
+        className: 'shrink-0 uppercase tracking-wide text-(--ui-text-quaternary)',
+        children: `files ${detail.objects.length}`
+      }),
+      ...detail.objects.map(([path, hits]) =>
+        jsxs(
+          'span',
+          {
+            className: 'flex items-center gap-0.5',
+            children: [
+              jsx('span', {
+                className: 'font-mono text-(--ui-text-secondary)',
+                children: basename(path) || path
+              }),
+              hits > 1
+                ? jsx('span', {
+                    className: 'font-mono text-(--ui-text-quaternary)',
+                    children: `x${hits}`
+                  })
+                : null
+            ]
+          },
+          `file:${path}`
+        )
+      )
+    ]
+  })
+}
+
 function StateGraphPane({ ctx }) {
   const trails = useValue($trails)
   const view = useValue($view)
   const filter = useValue($filter)
   const follow = useValue($follow)
   const pinned = useValue($pinned)
+  const selected = useValue($detail)
   const focused = useValue(host.state.focusedSessionId)
   const active = useValue(host.state.activeSessionId)
   const busy = useValue(host.state.busy)
   const sid = follow ? focused || active || '' : pinned
   const trail = sid ? trails[sid] : null
 
+  const openKey =
+    sid && selected && selected.startsWith(`${sid}:`)
+      ? selected.slice(String(sid).length + 1)
+      : ''
+  const detail = openKey && trail ? nodeDetail(trail, openKey) : null
+  const footerPayload = footerWeight(trail)
   const current = trail?.nodes?.[trail.current]
   const mode = modeOf(trail)
   const tools = trail ? trail.cards.filter(card => !card.seeded).length : 0
@@ -2636,6 +2830,7 @@ function StateGraphPane({ ctx }) {
             },
             children: 'pin'
           }),
+          jsx(FilesInline, { detail }),
           jsx('span', { className: 'flex-1' }),
           jsx(Button, {
             variant: 'ghost',
@@ -2669,10 +2864,19 @@ function StateGraphPane({ ctx }) {
               jsx(TrailView, { trail, sid, ctx })
             ]
           }),
-      jsx(Legend, { trail }),
-      jsx('div', {
-        className: 'border-t border-(--ui-stroke-quaternary) px-2 py-1 text-(--ui-text-quaternary)',
-        children: sid ? clip(sid, 27) : 'waiting for a focused session'
+      jsxs('div', {
+        className:
+          'flex min-w-0 flex-wrap items-center gap-2 border-t border-(--ui-stroke-quaternary) ' +
+          'px-2 py-1 text-(--ui-text-quaternary)',
+        children: [
+          jsx('span', {
+            className: 'shrink-0 font-mono',
+            children: sid ? clip(sid, 27) : 'waiting for a focused session'
+          }),
+          jsx(WeightStrip, { detail: footerPayload }),
+          jsx('span', { className: 'min-w-0 flex-1', 'aria-hidden': 'true' }),
+          jsx(Legend, { trail })
+        ]
       })
     ]
   })

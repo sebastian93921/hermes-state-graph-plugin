@@ -104,7 +104,7 @@ check('a thinking node reports the step with no invented payload', () => {
     throw new Error('thinking node produced no rows')
   }
 
-  if (JSON.stringify(detail).includes('null')) {
+  if (JSON.stringify(detail.rows).includes('null')) {
     throw new Error('empty fields leaked into the rows')
   }
 
