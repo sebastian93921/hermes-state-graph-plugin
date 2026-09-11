@@ -1434,7 +1434,7 @@ function nodeDetail(trail, key) {
 
   if (card) {
     if (card.command) {
-      rows.push({ label: 'command', value: clip(card.command, 4000), mono: true })
+      rows.push({ label: 'command', value: clip(card.command, 4000), mono: true, copy: true })
     }
 
     const extras = (card.argRows || [])
@@ -1449,7 +1449,7 @@ function nodeDetail(trail, key) {
     const body = card.error || asText(card.result)
 
     if (body) {
-      rows.push({ label: 'result', value: clip(String(body), 1200), mono: true })
+      rows.push({ label: 'result', value: clip(String(body), 1200), mono: true, copy: true })
     }
 
     if (card.status) {
@@ -2416,7 +2416,15 @@ function GraphView({ trail }) {
                             ? 'min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-(--ui-text-secondary)'
                             : 'min-w-0 flex-1 overflow-auto break-all text-(--ui-text-secondary)',
                           children: row.value
-                        })
+                        }),
+                        row.copy
+                          ? jsx(CopyButton, {
+                              appearance: 'inline',
+                              className: 'text-(--ui-text-tertiary)',
+                              label: `Copy ${row.label}`,
+                              text: row.value
+                            })
+                          : null
                       ]
                     },
                     row.label

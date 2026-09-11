@@ -145,6 +145,33 @@ check('the panel is scoped to its own session', () => {
   }
 })
 
+// open the panel first: the stub prints `label:textLength`, so the two lengths
+// prove the command and the result are separate clipboard payloads
+$detail.set(`${SID}:${trail.order.find(key => trail.nodes[key]?.baseKey === 'tool:terminal')}`)
+
+check('the command and result rows each get their own Copy button', () => {
+  const frame = renderToString(jsx(GraphView, { trail }))
+  const buttons = (frame.match(/data-stub="CopyButton"[^<]*</g) || []).join(',')
+
+  // "echo hello" is 10 chars, the result "hello" is 5
+  if (!frame.includes('Copy command:10<')) {
+    throw new Error(`no command copy button (${buttons})`)
+  }
+
+  if (!frame.includes('Copy result:5<')) {
+    throw new Error(`no result copy button (${buttons})`)
+  }
+})
+
+check('the other rows stay plain (no stray copy buttons)', () => {
+  const frame = renderToString(jsx(GraphView, { trail }))
+  const count = (frame.match(/data-stub="CopyButton"/g) || []).length
+
+  if (count !== 2) {
+    throw new Error(`expected exactly two copy buttons, got ${count}`)
+  }
+})
+
 check('no NaN in the detail panel', () => {
   $detail.set(`${SID}:${trail.order[0]}`)
 
