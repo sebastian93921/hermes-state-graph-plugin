@@ -56,6 +56,7 @@ const $expanded = atom({}) // 'sid:cardKey' -> bool
 const $follow = atom(true) // follow the focused chat, or pin one
 const $expandedLanes = atom({}) // 'sid:taskId|laneId' -> the elided middle is open
 const $pinned = atom('') // pinned runtime session id
+const $detail = atom('') // 'sid:nodeKey' of the node the last click inspected
 
 const emptyTrail = sid => ({
   sid,
@@ -1404,6 +1405,69 @@ const KIND_FILL = {
 const cardFill = (kind, dim) =>
   dim ? `color-mix(in srgb, ${KIND_FILL[kind] || 'var(--ui-text-tertiary)'} 42%, var(--ui-bg-primary))` : KIND_FILL[kind] || 'var(--ui-text-tertiary)'
 
+/** Rows shown under the graph for the clicked node: the agent's own words for
+ *  the step, plus the tool card's payload when one matches the node's tool.
+ *  Nothing is invented — a field is only emitted when the store carries it. */
+function nodeDetail(trail, key) {
+  const node = trail?.nodes?.[key]
+
+  if (!node) {
+    return null
+  }
+
+  const rows = []
+
+  if (node.summary) {
+    rows.push({ label: 'task', value: node.summary })
+  }
+
+  if (node.name) {
+    rows.push({ label: 'step', value: node.name })
+  }
+
+  const toolName = String(node.baseKey || '').startsWith('tool:')
+    ? String(node.baseKey).slice(5)
+    : ''
+  const card = toolName
+    ? (trail.cards || []).filter(item => item.name === toolName).slice(-1)[0]
+    : null
+
+  if (card) {
+    if (card.command) {
+      rows.push({ label: 'command', value: clip(card.command, 4000), mono: true })
+    }
+
+    const extras = (card.argRows || [])
+      .filter(row => row.key !== 'command')
+      .map(row => `${row.key} ${clip(String(row.value), 120)}`)
+      .join('  ·  ')
+
+    if (extras) {
+      rows.push({ label: 'other args', value: extras })
+    }
+
+    const body = card.error || asText(card.result)
+
+    if (body) {
+      rows.push({ label: 'result', value: clip(String(body), 1200), mono: true })
+    }
+
+    if (card.status) {
+      rows.push({ label: 'status', value: card.status })
+    }
+
+    if (card.durationS) {
+      rows.push({ label: 'took', value: durationLabel(card) })
+    }
+  }
+
+  if (node.count > 1) {
+    rows.push({ label: 'repeats', value: `x${node.count}` })
+  }
+
+  return rows.length ? { title: toolName || node.kind || key, rows } : null
+}
+
 /** Wrap a title into at most two lines for a card. */
 function wrapTitle(text, maxChars = 20, maxLines = 2) {
   const raw = String(text || '').replace(/\s+/g, ' ').trim()
@@ -1846,6 +1910,30 @@ function GraphView({ trail }) {
       )
     })
 
+    if (role === 'step') {
+      children.push(
+        jsx(
+          'rect',
+          {
+            className: 'sg-hit',
+            x,
+            y: cardY,
+            width: w,
+            height: h,
+            rx: 8,
+            fill: 'transparent',
+            onClick: event => {
+              event.stopPropagation()
+              $detail.set(`${trail?.sid}:${key}`)
+            },
+            style: { cursor: 'pointer' },
+            children: jsx('title', { children: title }, `${key}:tip`)
+          },
+          `${key}:hit`
+        )
+      )
+    }
+
     if (meta) {
       children.push(
         jsx(
@@ -2015,7 +2103,10 @@ function GraphView({ trail }) {
         'g',
         {
           className: `sg-chip ${extraClass || ''}`.trim(),
-          onClick: onToggle,
+          onClick: event => {
+            event.stopPropagation()
+            onToggle()
+          },
           style: { cursor: 'pointer' },
           children: [
             jsx(
@@ -2246,16 +2337,83 @@ function GraphView({ trail }) {
     }
   }
 
-  return jsx('div', {
-    ref: scroller,
-    className: 'min-h-0 flex-1 overflow-auto p-2',
-    children: jsx('svg', {
-      width,
-      height,
-      viewBox: `0 0 ${width} ${height}`,
-      role: 'img',
-      children
-    })
+  const selected = useValue($detail)
+  const openKey = selected && selected.startsWith(`${trail?.sid}:`)
+    ? selected.slice(String(trail?.sid).length + 1)
+    : ''
+  const detail = openKey ? nodeDetail(trail, openKey) : null
+
+  const close = () => $detail.set('')
+
+  return jsxs('div', {
+    // clicking the empty canvas area behind the boxes dismisses the detail box
+    onClick: close,
+    className: 'flex min-h-0 flex-1 flex-row gap-1',
+    children: [
+      jsx('div', {
+        ref: scroller,
+        className: 'min-h-0 min-w-0 flex-1 overflow-auto p-2',
+        children: jsx('svg', {
+          width,
+          height,
+          viewBox: `0 0 ${width} ${height}`,
+          role: 'img',
+          children
+        })
+      }),
+      detail
+        ? jsxs('div', {
+            onClick: event => event.stopPropagation(),
+            className: 'w-[260px] shrink-0 self-start overflow-auto rounded-[4px] border border-(--ui-stroke-quaternary) bg-(--ui-bg-secondary) px-2 py-1.5',
+            children: [
+              jsxs('div', {
+                className: 'flex items-center gap-1.5',
+                children: [
+                  jsx('span', {
+                    className: 'min-w-0 flex-1 truncate font-medium text-(--ui-text-primary)',
+                    children: detail.title
+                  }),
+                  jsx('span', {
+                    className: 'shrink-0 rounded-[3px] px-1 py-px font-mono text-[0.6rem] bg-(--ui-bg-quaternary) text-(--ui-text-quaternary)',
+                    children: `step ${trail.order.indexOf(openKey) + 1}/${trail.order.length}`
+                  }),
+                  jsx('button', {
+                    type: 'button',
+                    onClick: close,
+                    title: 'close',
+                    className: 'shrink-0 rounded-[3px] px-1 font-mono text-[0.65rem] text-(--ui-text-quaternary) hover:bg-(--chrome-action-hover)',
+                    children: '[x]'
+                  })
+                ]
+              }),
+              jsx('div', {
+                className: 'mt-1 flex flex-col gap-0.5',
+                children: detail.rows.map(row =>
+                  jsxs(
+                    'div',
+                    {
+                      className: 'flex items-baseline gap-1.5',
+                      children: [
+                        jsx('span', {
+                          className: 'w-14 shrink-0 text-(--ui-text-quaternary) uppercase tracking-wide',
+                          children: row.label
+                        }),
+                        jsx(row.mono ? 'pre' : 'span', {
+                          className: row.mono
+                            ? 'min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-(--ui-text-secondary)'
+                            : 'min-w-0 flex-1 break-all text-(--ui-text-secondary)',
+                          children: row.value
+                        })
+                      ]
+                    },
+                    row.label
+                  )
+                )
+              })
+            ]
+          })
+        : null
+    ]
   })
 }
 
@@ -2711,4 +2869,4 @@ export default {
 // these extra named exports are inert at runtime — they let an offline harness
 // (and a debugging session) drive the real renderer and read the real store
 // instead of standing up a second module instance with its own atoms.
-export { GraphView, layoutGraph, ToolCard, $trails, $expanded, $expandedLanes }
+export { GraphView, layoutGraph, ToolCard, nodeDetail, $trails, $expanded, $expandedLanes, $detail }
