@@ -1757,7 +1757,7 @@ function GraphView({ trail }) {
 
     if (halo) {
       children.push(
-        jsx(
+        jsxs(
           'rect',
           {
             className: 'sg-halo',
@@ -1766,7 +1766,17 @@ function GraphView({ trail }) {
             width: w + 10,
             height: h + 10,
             rx: 9,
-            fill: 'color-mix(in srgb, var(--ui-accent) 14%, transparent)'
+            fill: 'color-mix(in srgb, var(--ui-accent) 14%, transparent)',
+            children: jsx(
+              'animate',
+              {
+                attributeName: 'opacity',
+                values: '0.55;1;0.55',
+                dur: '1.6s',
+                repeatCount: 'indefinite'
+              },
+              `${key}:pulse`
+            )
           },
           `${key}:halo`
         )
@@ -1851,7 +1861,7 @@ function GraphView({ trail }) {
     const stroke = active ? 'var(--ui-accent)' : 'var(--ui-stroke-tertiary)'
 
     children.push(
-      jsx(
+      jsxs(
         'path',
         {
           className: elbow ? 'sg-edge sg-edge-fork' : 'sg-edge',
@@ -1860,7 +1870,23 @@ function GraphView({ trail }) {
           stroke,
           strokeWidth: active ? 2.4 : 1.6,
           opacity: active ? 1 : 0.75,
-          markerEnd: `url(#${active ? `${markerId}-on` : markerId})`
+          markerEnd: `url(#${active ? `${markerId}-on` : markerId})`,
+          ...(active ? { strokeDasharray: '6 6', strokeDashoffset: 12 } : {}),
+          ...(active
+            ? {
+                children: jsx(
+                  'animate',
+                  {
+                    attributeName: 'stroke-dashoffset',
+                    from: 12,
+                    to: 0,
+                    dur: '1.1s',
+                    repeatCount: 'indefinite'
+                  },
+                  `${key}:march`
+                )
+              }
+            : {})
         },
         `${key}:path`
       )
