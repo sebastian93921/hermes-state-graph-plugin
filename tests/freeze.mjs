@@ -50,7 +50,7 @@ check('the hop starts where it rests and steps the full 5 slots', () => {
     throw new Error(`first frame ${seq[0]} != resting offset ${hop?.[1]}`)
   }
   for (let i = 1; i < 5; i++) {
-    if ((seq[i - 1] + 8) % 40 !== seq[i]) {
+    if ((seq[i - 1] + 32) % 40 !== seq[i]) {
       throw new Error(`frame ${i}: ${seq[i - 1]} -> ${seq[i]} is not one 8px slot`)
     }
   }

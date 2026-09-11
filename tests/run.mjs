@@ -338,7 +338,7 @@ check('flow is forward-only, no dashed loop-backs', () => {
   }
 
   for (let i = 1; i < 5; i++) {
-    if ((frames[i - 1] + 8) % 40 !== frames[i]) {
+    if ((frames[i - 1] + 32) % 40 !== frames[i]) {
       throw new Error(`hop frame ${i}: ${frames[i - 1]} -> ${frames[i]} is not one 8px slot`)
     }
   }

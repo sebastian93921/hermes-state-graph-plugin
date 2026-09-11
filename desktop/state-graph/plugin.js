@@ -1889,7 +1889,7 @@ function GraphView({ trail }) {
     // stream goes idle (busy flips false): the last event's timestamp decides it.
     const phase = smilPhase(latestAt)
     // five steps of one slot each, then the cycle wraps to the resting frame
-    const rotated = [0, 1, 2, 3, 4, 5].map(k => (phase + k * 8) % 40).join(';')
+    const rotated = [0, 1, 2, 3, 4, 5].map(k => ((phase - k * 8) % 40 + 40) % 40).join(';')
     const stroke = active ? 'var(--ui-accent)' : 'var(--ui-stroke-tertiary)'
 
     children.push(
