@@ -1987,7 +1987,7 @@ function GraphView({ trail }) {
 
   // Anchor points for the two card shapes a lane can hold.
   const stepOut = pos => ({ x: pos.x + STEP_W, y: pos.y + STEP_H / 2 })
-  const stepIn = pos => ({ x: pos.x - 6, y: pos.y + STEP_H / 2 })
+  const stepIn = pos => ({ x: pos.x - 2, y: pos.y + STEP_H / 2 })
   const gapOut = (lane, col) => ({
     x: PAD + HEADER_W + HEADER_LEAD + col * CELL_W + (STEP_W - GAP_W) / 2 + GAP_W,
     y: lane.y + (STEP_H - GAP_H) / 2 + GAP_H / 2
@@ -2068,7 +2068,7 @@ function GraphView({ trail }) {
               id: suffix === 'sg-arrow' ? markerId : `${markerId}-on`,
               markerWidth: 8,
               markerHeight: 8,
-              refX: 6.5,
+              refX: 6,
               refY: 3,
               orient: 'auto',
               markerUnits: 'userSpaceOnUse',
