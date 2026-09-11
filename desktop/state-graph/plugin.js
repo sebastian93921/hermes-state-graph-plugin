@@ -1742,6 +1742,9 @@ function GraphView({ trail }) {
     $expandedLanes.set(next)
   }
   const focus = (trail && trail.current) || ''
+  // A finished turn is a STILL frame: the halo and the marching dots belong to
+  // the in-flight step only, so they must drop out once the run reports done.
+  const live = trail?.status === 'running' || trail?.status === 'drafting' || Boolean(trail && !trail.endedAt)
 
   useEffect(() => {
     const el = scroller.current
@@ -2171,7 +2174,7 @@ function GraphView({ trail }) {
           return
         }
 
-        const isCurrent = trail.current === step.key
+        const isCurrent = live && trail.current === step.key
 
         if (previousPoint) {
           const via = previousKey ? trail.edges[`${previousKey}>${step.key}`]?.via : ''
@@ -2225,7 +2228,7 @@ function GraphView({ trail }) {
           continue
         }
 
-        const isCurrent = trail.current === step.key
+        const isCurrent = live && trail.current === step.key
 
         card({
           key: step.key,

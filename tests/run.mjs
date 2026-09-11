@@ -14,10 +14,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 
 import { renderToString } from 'react-dom/server'
+import { jsx } from 'react/jsx-runtime'
 
 import { __emit, __resetHost, host } from '@hermes/plugin-sdk'
 
-import plugin from './plugin.js'
+import plugin, { GraphView, $trails } from './plugin.js'
 
 let failures = 0
 const check = (label, fn) => {
@@ -199,6 +200,9 @@ __emit({
   session_id: SID,
   payload: { name: 'state_graph_note', tool_id: 'n2', result: '{"ok":true}', duration_s: 0.05 }
 })
+// the in-flight frame: captured BEFORE message.complete, which is what flips
+// the trail to 'done' and turns the graph into its still frame
+const liveGraphHtml = renderToString(jsx(GraphView, { trail: $trails.get()[SID] }))
 __emit({ type: 'message.start', session_id: SID, payload: {} })
 __emit({ type: 'message.complete', session_id: SID, payload: { status: 'ok' } })
 host.state.busy.set(false)
@@ -310,27 +314,31 @@ check('state_graph_note never becomes a task, a step, or a card', () => {
 check('flow is forward-only, no dashed loop-backs', () => {
   // The only dash pattern now is the marching 6/6 dash of the ACTIVE edge
   // (the old static dashed back-edge is gone). Animate lives in its place.
-  if (!has(graphHtml, 'stroke-dasharray="0.1 7"')) {
+  if (!has(liveGraphHtml, 'stroke-dasharray="0.1 7"')) {
     throw new Error('the active edge lost its static small-dot pattern')
   }
 
-  if (!has(graphHtml, 'stroke-dasharray="0.1 39"')) {
+  if (!has(liveGraphHtml, 'stroke-dasharray="0.1 39"')) {
     throw new Error('the fat-dot overlay is missing')
   }
 
-  if (!has(graphHtml, 'calcMode="linear"')) {
+  if (!has(liveGraphHtml, 'calcMode="linear"')) {
     throw new Error('the fat dot must glide with piecewise-linear interpolation')
   }
 
+  if (!has(liveGraphHtml, 'fill="freeze"')) {
+    throw new Error('the animations must hold their last frame when the stream is idle')
+  }
+
   // dotted layers stop 8px short of the line end so no dot crosses the arrowhead
-  const dotPath = (graphHtml.match(/class="sg-edge sg-edge-dot"[^>]*d="M ([\d.-]+) [\d.-]+ L ([\d.-]+) [\d.-]+"/) || [])[2]
-  const basePath = (graphHtml.match(/class="sg-edge"[^>]*d="M [\d.-]+ [\d.-]+ L ([\d.-]+) [\d.-]+"/) || [])[1]
+  const dotPath = (liveGraphHtml.match(/class="sg-edge sg-edge-dot"[^>]*d="M ([\d.-]+) [\d.-]+ L ([\d.-]+) [\d.-]+"/) || [])[2]
+  const basePath = (liveGraphHtml.match(/class="sg-edge"[^>]*d="M [\d.-]+ [\d.-]+ L ([\d.-]+) [\d.-]+"/) || [])[1]
 
   if (dotPath && basePath && Number(dotPath) + 8 !== Number(basePath)) {
     throw new Error(`dotted layer must end 8px before the line end: ${dotPath} vs ${basePath}`)
   }
 
-  const hopSeq = (graphHtml.match(/attributeName="stroke-dashoffset"[^>]*values="([^"]*)"/) || [])[1] || ''
+  const hopSeq = (liveGraphHtml.match(/attributeName="stroke-dashoffset"[^>]*values="([^"]*)"/) || [])[1] || ''
 
   // Monotone descending ladder so linear interpolation never slides backward:
   // 40;32;24;16;8;0 = a constant-rate advance of one 8px slot per frame.
@@ -339,11 +347,11 @@ check('flow is forward-only, no dashed loop-backs', () => {
   }
 
 
-  if (!has(graphHtml, 'fill="freeze"')) {
+  if (!has(liveGraphHtml, 'fill="freeze"')) {
     throw new Error('the animations must freeze on the last frame when the stream is idle')
   }
 
-  if (!has(graphHtml, 'stroke-linecap="round"')) {
+  if (!has(liveGraphHtml, 'stroke-linecap="round"')) {
     throw new Error('the dots need round caps')
   }
 
@@ -369,11 +377,27 @@ check('no "work" row above the graph (the trail carries the work)', () => {
     throw new Error('work strip still rendered')
   }
 })
-check('current step is marked (halo around the live card)', () => {
-  const halos = ((graphHtml || '').match(/class="sg-halo"/g) || []).length
+check('current step is marked while the turn is in flight (halo around the live card)', () => {
+  const halos = ((liveGraphHtml || '').match(/class="sg-halo"/g) || []).length
 
   if (halos !== 1) {
     throw new Error(`expected exactly one halo, found ${halos}`)
+  }
+})
+check('a finished turn is a still frame: no halo, no marching dots', () => {
+  const halos = ((graphHtml || '').match(/class="sg-halo"/g) || []).length
+  const dots = ((graphHtml || '').match(/stroke-dasharray="0\.1 7"/g) || []).length
+
+  if (halos !== 0 || dots !== 0) {
+    throw new Error(`still frame expected, got ${halos} halo / ${dots} dotted edge(s)`)
+  }
+
+  if ((graphHtml || '').includes('<animate')) {
+    throw new Error('a finished turn must carry no live animation elements')
+  }
+
+  if (!(graphHtml || '').includes('class="sg-node"')) {
+    throw new Error('the still frame must keep drawing the completed nodes')
   }
 })
 check('transitions are labelled with verbs', () => {
