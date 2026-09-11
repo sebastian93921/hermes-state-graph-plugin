@@ -2520,16 +2520,19 @@ function GraphView({ trail }) {
                   jsxs(
                     'div',
                     {
-                      className: 'flex items-baseline gap-1.5',
+                      className: 'flex items-start gap-1.5',
                       children: [
                         jsx('span', {
-                          className: 'w-14 shrink-0 text-(--ui-text-quaternary) uppercase tracking-wide',
+                          className: 'w-14 shrink-0 pt-0.5 text-(--ui-text-quaternary) uppercase tracking-wide',
                           children: row.label
                         }),
                         jsx(row.mono ? 'pre' : 'span', {
                           style: { maxHeight: '120px' },
                           className: row.mono
-                            ? 'min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-(--ui-text-secondary)'
+                            ? cn(
+                                'min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all rounded-[3px] p-1.5',
+                                'bg-(--ui-bg-quaternary) font-mono text-(--ui-text-secondary)'
+                              )
                             : 'min-w-0 flex-1 overflow-auto break-all text-(--ui-text-secondary)',
                           children: row.value
                         }),
