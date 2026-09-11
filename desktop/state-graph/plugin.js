@@ -1875,24 +1875,47 @@ function GraphView({ trail }) {
             ? {
                 strokeDasharray: '0.1 7',
                 strokeLinecap: 'round',
-                strokeDashoffset: 8,
-                children: jsx(
-                  'animate',
-                  {
-                    attributeName: 'stroke-dashoffset',
-                    from: 8,
-                    to: 0,
-                    dur: '1.2s',
-                    repeatCount: 'indefinite'
-                  },
-                  `${key}:march`
-                )
+                strokeDashoffset: 8
               }
             : {})
         },
         `${key}:path`
       )
     )
+
+    // The fat dot: one accent dot every 5 slots (period 40 = 5x8), hopping
+    // one slot per step (discrete) so the run reads  · · o · · >  ->  · · · o · >
+    // while the small dots stay put.
+    if (active) {
+      children.push(
+        jsxs(
+          'path',
+          {
+            className: 'sg-edge sg-edge-dot',
+            d,
+            fill: 'none',
+            stroke: 'var(--ui-accent)',
+            strokeWidth: 4.2,
+            strokeLinecap: 'round',
+            strokeDasharray: '0.1 39',
+            strokeDashoffset: 40,
+            opacity: 1,
+            children: jsx(
+              'animate',
+              {
+                attributeName: 'stroke-dashoffset',
+                values: '40;32;24;16;8;0',
+                calcMode: 'discrete',
+                dur: '1.5s',
+                repeatCount: 'indefinite'
+              },
+              `${key}:hop`
+            )
+          },
+          `${key}:dot`
+        )
+      )
+    }
 
     const text = clip(String(label || ''), 22)
 

@@ -311,15 +311,23 @@ check('flow is forward-only, no dashed loop-backs', () => {
   // The only dash pattern now is the marching 6/6 dash of the ACTIVE edge
   // (the old static dashed back-edge is gone). Animate lives in its place.
   if (!has(graphHtml, 'stroke-dasharray="0.1 7"')) {
-    throw new Error('the active edge lost its marching dot pattern')
+    throw new Error('the active edge lost its static small-dot pattern')
+  }
+
+  if (!has(graphHtml, 'stroke-dasharray="0.1 39"')) {
+    throw new Error('the fat-dot overlay is missing')
+  }
+
+  if (!has(graphHtml, 'calcMode="discrete"')) {
+    throw new Error('the fat dot must hop slot-to-slot, not slide')
+  }
+
+  if (!has(graphHtml, 'values="40;32;24;16;8;0"')) {
+    throw new Error('the hop must step exactly one 8px slot per frame')
   }
 
   if (!has(graphHtml, 'stroke-linecap="round"')) {
-    throw new Error('the marching dots need round caps')
-  }
-
-  if (!has(graphHtml, '<animate')) {
-    throw new Error('no SMIL animation on the live edge')
+    throw new Error('the dots need round caps')
   }
 
   if (has(graphHtml, 'ran earlier')) {
