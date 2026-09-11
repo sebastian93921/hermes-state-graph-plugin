@@ -1,4 +1,4 @@
-# Hermes State Graph
+# Hermes Desktop State Graph
 
 See what your agent is actually doing — inside the Hermes desktop app.
 
