@@ -1793,6 +1793,7 @@ function GraphView({ trail }) {
               'animate',
               {
                 attributeName: 'opacity',
+                fill: 'freeze',
                 values: '0.55;1;0.55',
                 dur: '1.6s',
                 repeatCount: 'indefinite'
@@ -1939,6 +1940,7 @@ function GraphView({ trail }) {
               'animate',
               {
                 attributeName: 'stroke-dashoffset',
+                fill: 'freeze',
                 values: ladder,
                 calcMode: 'linear',
                 dur: '1s',

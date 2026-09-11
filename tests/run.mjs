@@ -330,12 +330,17 @@ check('flow is forward-only, no dashed loop-backs', () => {
     throw new Error(`dotted layer must end 8px before the line end: ${dotPath} vs ${basePath}`)
   }
 
-  const hopSeq = (graphHtml.match(/attributeName="stroke-dashoffset" values="([^"]*)"/) || [])[1] || ''
+  const hopSeq = (graphHtml.match(/attributeName="stroke-dashoffset"[^>]*values="([^"]*)"/) || [])[1] || ''
 
   // Monotone descending ladder so linear interpolation never slides backward:
   // 40;32;24;16;8;0 = a constant-rate advance of one 8px slot per frame.
   if (hopSeq !== '40;32;24;16;8;0') {
     throw new Error(`hop must be the descending ladder, got "${hopSeq}"`)
+  }
+
+
+  if (!has(graphHtml, 'fill="freeze"')) {
+    throw new Error('the animations must freeze on the last frame when the stream is idle')
   }
 
   if (!has(graphHtml, 'stroke-linecap="round"')) {

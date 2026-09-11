@@ -26,7 +26,7 @@ for (let i = 0; i < 8; i++) {
 const trail = $trails.get()[SID]
 const html = renderToString(jsx(GraphView, { trail }))
 const hop = /sg-edge sg-edge-dot[^"]*"[^>]*stroke-dashoffset="(\d+)"/.exec(html)
-const values = /attributeName="stroke-dashoffset" values="([^"]*)"/.exec(html)
+const values = /attributeName="stroke-dashoffset"[^>]*values="([^"]*)"/.exec(html)
 
 console.log('status:', trail.status, '| hop rest:', hop?.[1], '| hop values:', values?.[1])
 
@@ -49,6 +49,14 @@ check('the hop is a constant-rate monotone ladder, and the rest is slot-aligned'
   // the resting (static) offset must sit on one of the ladder's slot lines
   if (rest % 8 !== 0 || rest > 40) {
     throw new Error(`rest ${rest} is not on a slot line`)
+  }
+})
+
+check('both animations hold their last frame once the stream is idle', () => {
+  const held = [...html.matchAll(/<animate[^>]*fill="freeze"[^>]*>/g)]
+
+  if (held.length !== 2) {
+    throw new Error(`expected 2 frozen animations, got ${held.length}`)
   }
 })
 check('render is deterministic for the same stamp (frozen frame)', () => {
