@@ -902,14 +902,22 @@ function handleEvent(event) {
       // everything is one queue.
       mutate(sid, draft => {
         draft.currentLane = laneFor(draft, payload, at)
-        enter(
-          draft,
-          'subagent',
-          'subagent',
-          `delegated: ${clip(String(payload?.goal || payload?.name || 'subagent'), 22)}`,
-          'active',
-          at
-        )
+
+        // A thinking frame is the worker THINKING, not a new delegation: its own
+        // step in the lane, labelled `thinking`, so the row no longer claims the
+        // delegation itself as the worker's last action.
+        if (type === 'subagent.thinking') {
+          enter(draft, 'thinking', 'state', 'thinking', 'active', at)
+        } else {
+          enter(
+            draft,
+            'subagent',
+            'subagent',
+            `delegated: ${clip(String(payload?.goal || payload?.name || 'subagent'), 22)}`,
+            'active',
+            at
+          )
+        }
         // Not sticky: the agent keeps working while workers run, and those steps
         // belong to the main lane.
         draft.currentLane = 'main'
